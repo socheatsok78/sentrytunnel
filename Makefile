@@ -5,9 +5,9 @@ test:
 	go test -v ./...
 
 run:
-	go run cmd/sentry-tunnel/main.go
+	go run sentrytunnel.go
 debug:
-	go run cmd/sentry-tunnel/main.go --log-level=debug
+	go run sentrytunnel.go --log-level=debug
 build: \
 	bin/sentry-stub-server \
 	bin/sentry-tunnel
