@@ -41,7 +41,8 @@ VERSION:
 GLOBAL OPTIONS:
    --listen-addr value                                        The address to listen on (default: ":8080")
    --log-level value                                          Set the log level (default: "info")
-   --trusted-sentry-dsn value [ --trusted-sentry-dsn value ]  A list of Sentry DSNs that are trusted by the tunnel. The DSNs must not contain the public key and secret key. e.g. "https://public@sentry.example.com/1"
+   --allowed-origin value [ --allowed-origin value ]          A list of origins that are allowed to access the tunnel. e.g. https://example.com
+   --trusted-sentry-dsn value [ --trusted-sentry-dsn value ]  A list of Sentry DSNs that are trusted by the tunnel, must NOT contain the public/secret keys. e.g. "https://sentry.example.com/1"
    --help, -h                                                 show help
    --version, -v                                              print the version
 ```
