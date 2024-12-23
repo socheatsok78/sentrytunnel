@@ -8,10 +8,16 @@ run:
 	go run cmd/sentry-tunnel/main.go
 debug:
 	go run cmd/sentry-tunnel/main.go --log-level=debug
-build:
-	go build -o bin/sentry-tunnel cmd/sentry-tunnel/main.go
+build: \
+	bin/sentry-stub-server \
+	bin/sentry-tunnel
 clean:
 	rm -rf bin
+
+bin/sentry-stub-server:
+	go build -o bin/sentry-stub-server cmd/sentry-stub-server/main.go
+bin/sentry-tunnel:
+	go build -o bin/sentry-tunnel cmd/sentry-tunnel/main.go
 
 docker/build:
 	docker buildx bake --load dev
