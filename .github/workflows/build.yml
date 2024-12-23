@@ -48,8 +48,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            docker.io/${{ github.actor }}/sentry-tunnel
-            ghcr.io/${{ github.actor }}/sentry-tunnel
+            docker.io/${{ github.actor }}/sentrytunnel
+            ghcr.io/${{ github.actor }}/sentrytunnel
           tags: |
             type=ref,event=branch
             type=ref,event=pr

@@ -1,5 +1,5 @@
 variable "GITHUB_REPOSITORY" {
-    default = "socheatsok78/sentry-tunnel"
+    default = "socheatsok78/sentrytunnel"
 }
 
 variable "GO_VERSION" { default = "1.23" }
