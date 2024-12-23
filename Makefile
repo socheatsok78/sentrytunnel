@@ -24,3 +24,8 @@ benchmark:
 .PHONY: benchmarks/self-hosted.lua
 benchmarks/self-hosted.lua:
 	wrk -t12 -c400 -d30s -s $@ http://localhost:8080/tunnel
+
+docker/build:
+	docker buildx bake --load dev
+docker/run:
+	docker run --rm -it -p 8080:8080 socheatsok78/sentry-tunnel:dev
