@@ -12,12 +12,12 @@ RUN --mount=type=bind,target=/app,source=. \
     export GOOS=linux
     for GOARCH in amd64 arm64; do
         export GOARCH
-        go build -o /sentry-tunnel-$GOOS-$GOARCH -ldflags="-s -X main.Version=${DOCKER_META_VERSION}" sentrytunnel.go
+        go build -o /sentrytunnel-$GOOS-$GOARCH -ldflags="-s -X main.Version=${DOCKER_META_VERSION}" sentrytunnel.go
     done
 EOT
 
 FROM quay.io/prometheus/busybox-${TARGETOS}-${TARGETARCH}:latest
 ARG TARGETOS
 ARG TARGETARCH
-COPY --from=builder /sentry-tunnel-$TARGETOS-$TARGETARCH /bin/sentry-tunnel
-ENTRYPOINT [ "/bin/sentry-tunnel" ]
+COPY --from=builder /sentrytunnel-$TARGETOS-$TARGETARCH /bin/sentrytunnel
+ENTRYPOINT [ "/bin/sentrytunnel" ]
