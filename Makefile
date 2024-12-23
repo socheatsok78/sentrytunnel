@@ -15,9 +15,9 @@ clean:
 	rm -rf bin
 
 bin/sentry-stub-server:
-	go build -o bin/sentry-stub-server cmd/sentry-stub-server/main.go
+	go build -o bin/sentry-stub-server cli/sentry-stub-server/main.go
 bin/sentry-tunnel:
-	go build -o bin/sentry-tunnel cmd/sentry-tunnel/main.go
+	go build -o bin/sentry-tunnel sentrytunnel.go
 
 docker/build:
 	docker buildx bake --load dev
