@@ -98,7 +98,6 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel",
-				Value:       []string{"*"},
 				Destination: &sentrytunnel.AccessControlAllowOrigin,
 				Validator: func(s []string) error {
 					for _, origin := range s {
@@ -158,8 +157,13 @@ func main() {
 func action(_ context.Context, cmd *cli.Command) error {
 	level.Info(logger).Log("msg", "Starting the "+cmd.Name, "version", cmd.Version)
 
+	if len(sentrytunnel.AccessControlAllowOrigin) == 0 {
+		level.Warn(logger).Log("msg", "You are allowing all origins. We recommend you to specify the origins you trust. Please specify the --allowed-origin flag.")
+		sentrytunnel.AccessControlAllowOrigin = []string{"*"}
+	}
+
 	if len(sentrytunnel.TrustedSentryDSN) == 0 {
-		level.Warn(logger).Log("msg", "You are trusting all Sentry DSNs. We recommend you to specify the DSNs you trust. Please see --help for more information.")
+		level.Warn(logger).Log("msg", "You are trusting all Sentry DSNs. We recommend you to specify the DSNs you trust. Please specify the --trusted-sentry-dsn flag.")
 	}
 
 	// Register Prometheus metrics handler
