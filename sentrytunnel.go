@@ -97,14 +97,18 @@ func main() {
 			},
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
-				Usage:       "A list of origins that are allowed to access the tunnel",
+				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
 				Destination: &sentrytunnel.AccessControlAllowOrigin,
 				Validator: func(s []string) error {
 					for _, origin := range s {
 						if origin == "*" {
 							return nil
 						}
-						if _, err := url.Parse(origin); err != nil {
+						origin, err := url.Parse(origin)
+						if err != nil {
+							return fmt.Errorf("invalid origin: %s", origin)
+						}
+						if origin.Scheme == "" || origin.Host == "" {
 							return fmt.Errorf("invalid origin: %s", origin)
 						}
 					}
@@ -115,6 +119,7 @@ func main() {
 				Name:        "trusted-sentry-dsn",
 				Usage:       `A list of Sentry DSNs that are trusted by the tunnel, must NOT contain the public/secret keys. e.g. "https://sentry.example.com/1"`,
 				Destination: &sentrytunnel.TrustedSentryDSN,
+				Config:      cli.StringConfig{TrimSpace: true},
 				Validator: func(slices []string) error {
 					for _, slice := range slices {
 						dsn, err := url.Parse(slice)
@@ -155,9 +160,10 @@ func main() {
 }
 
 func action(_ context.Context, cmd *cli.Command) error {
+	allowedOrigins := cmd.StringSlice("allowed-origin")
 	level.Info(logger).Log("msg", "Starting the "+cmd.Name, "version", cmd.Version)
 
-	if len(sentrytunnel.AccessControlAllowOrigin) == 0 {
+	if len(allowedOrigins) == 0 {
 		level.Warn(logger).Log("msg", "You are allowing all origins. We recommend you to specify the origins you trust. Please specify the --allowed-origin flag.")
 		sentrytunnel.AccessControlAllowOrigin = []string{"*"}
 	}
@@ -184,7 +190,24 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		// Set the CORS header
 		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
-		w.Header().Set("Access-Control-Allow-Origin", strings.Join(sentrytunnel.AccessControlAllowOrigin, ","))
+
+		// Simple CORS check
+		isOriginAllowed := false
+		if r.Header.Get("Origin") != "" {
+			origin := r.Header.Get("Origin")
+			for _, allowedOrigin := range sentrytunnel.AccessControlAllowOrigin {
+				if allowedOrigin == "*" || allowedOrigin == origin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					isOriginAllowed = true
+					break
+				}
+			}
+		}
+		if !isOriginAllowed {
+			w.WriteHeader(403)
+			w.Write([]byte(`{"error":"Origin not allowed"}`))
+			return
+		}
 
 		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
 		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
