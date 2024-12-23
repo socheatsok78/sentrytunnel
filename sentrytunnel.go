@@ -21,13 +21,13 @@ import (
 )
 
 var (
-	Version                  = "dev"
-	HttpHeaderUserAgent      = "sentry-tunnel/" + Version
-	HttpHeaderSentryTunnelID = "X-Sentry-Tunnel-Id"
+	Version             = "dev"
+	HttpHeaderUserAgent = "sentry-tunnel/" + Version
 )
 
 var (
-	logger log.Logger
+	logger       log.Logger
+	sentrytunnel = &SentryTunnel{}
 
 	// ErrTunnelingToSentry is an error message for when there is an error tunneling to Sentry
 	ErrTunnelingToSentry = fmt.Errorf("error tunneling to sentry")
@@ -56,6 +56,12 @@ var (
 	})
 )
 
+type SentryTunnel struct {
+	ListenAddr               string
+	AccessControlAllowOrigin []string
+	TrustedSentryDSN         []string
+}
+
 func init() {
 	// Set up logging
 	logger = log.NewLogfmtLogger(os.Stdout)
@@ -79,9 +85,10 @@ func main() {
 		Version: Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "listen-addr",
-				Usage: "The address to listen on",
-				Value: ":8080",
+				Name:        "listen-addr",
+				Usage:       "The address to listen on",
+				Value:       ":8080",
+				Destination: &sentrytunnel.ListenAddr,
 			},
 			&cli.StringFlag{
 				Name:  "log-level",
@@ -89,8 +96,26 @@ func main() {
 				Value: "info",
 			},
 			&cli.StringSliceFlag{
-				Name:  "trusted-sentry-dsn",
-				Usage: `A list of Sentry DSNs that are trusted by the tunnel. The DSNs must not contain the public key and secret key. e.g. "https://public@sentry.example.com/1"`,
+				Name:        "allowed-origin",
+				Usage:       "A list of origins that are allowed to access the tunnel",
+				Value:       []string{"*"},
+				Destination: &sentrytunnel.AccessControlAllowOrigin,
+				Validator: func(s []string) error {
+					for _, origin := range s {
+						if origin == "*" {
+							return nil
+						}
+						if _, err := url.Parse(origin); err != nil {
+							return fmt.Errorf("invalid origin: %s", origin)
+						}
+					}
+					return nil
+				},
+			},
+			&cli.StringSliceFlag{
+				Name:        "trusted-sentry-dsn",
+				Usage:       `A list of Sentry DSNs that are trusted by the tunnel, must NOT contain the public/secret keys. e.g. "https://sentry.example.com/1"`,
+				Destination: &sentrytunnel.TrustedSentryDSN,
 				Validator: func(slices []string) error {
 					for _, slice := range slices {
 						dsn, err := url.Parse(slice)
@@ -131,12 +156,9 @@ func main() {
 }
 
 func action(_ context.Context, cmd *cli.Command) error {
-	listenAddrFlag := cmd.String("listen-addr")
-	trustedSentryDSNFlags := cmd.StringSlice("trusted-sentry-dsn")
-
 	level.Info(logger).Log("msg", "Starting the "+cmd.Name, "version", cmd.Version)
 
-	if len(trustedSentryDSNFlags) == 0 {
+	if len(sentrytunnel.TrustedSentryDSN) == 0 {
 		level.Warn(logger).Log("msg", "You are trusting all Sentry DSNs. We recommend you to specify the DSNs you trust. Please see --help for more information.")
 	}
 
@@ -157,8 +179,8 @@ func action(_ context.Context, cmd *cli.Command) error {
 		tunnelID := uuid.New()
 
 		// Set the CORS header
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set(HttpHeaderSentryTunnelID, tunnelID.String())
+		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
+		w.Header().Set("Access-Control-Allow-Origin", strings.Join(sentrytunnel.AccessControlAllowOrigin, ","))
 
 		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
 		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
@@ -184,9 +206,9 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		// Check if the DSN is trusted, it is possible for trustedDSNs to be empty
 		// If trustedDSNs is empty, we trust all DSNs
-		if len(trustedSentryDSNFlags) > 0 {
+		if len(sentrytunnel.TrustedSentryDSN) > 0 {
 			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "tunnel_id", tunnelID.String(), "dsn", dsn.Host+dsn.Path)
-			if err := isTrustedDSN(dsn, trustedSentryDSNFlags); err != nil {
+			if err := isTrustedDSN(dsn, sentrytunnel.TrustedSentryDSN); err != nil {
 				SentryEnvelopeRejected.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
@@ -216,8 +238,8 @@ func action(_ context.Context, cmd *cli.Command) error {
 	}))
 
 	// Start the server
-	level.Info(logger).Log("msg", "The server is listening on "+listenAddrFlag)
-	return http.ListenAndServe(listenAddrFlag, nil)
+	level.Info(logger).Log("msg", "The server is listening on "+sentrytunnel.ListenAddr)
+	return http.ListenAndServe(sentrytunnel.ListenAddr, nil)
 }
 
 func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
@@ -240,7 +262,7 @@ func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
 	// Create a new HTTP request
 	req, _ := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 	req.Header.Set("User-Agent", HttpHeaderUserAgent)
-	req.Header.Set(HttpHeaderSentryTunnelID, tunnelID)
+	req.Header.Set("X-Sentry-Tunnel-Id", tunnelID)
 
 	// Forward the request
 	resp, err := http.DefaultClient.Do(req)
