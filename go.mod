@@ -1,4 +1,4 @@
-module github.com/socheatsok78/sentry-tunnel
+module github.com/socheatsok78/sentrytunnel
 
 go 1.23.3
 

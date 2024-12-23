@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/socheatsok78/sentry-tunnel/envelope"
+	"github.com/socheatsok78/sentrytunnel/envelope"
 	"github.com/urfave/cli/v3"
 )
 
