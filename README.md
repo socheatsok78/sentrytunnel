@@ -79,5 +79,19 @@ Requests/sec:  77685.87
 Transfer/sec:      5.56MB
 ```
 
+Simulating a more realistic scenario with a higher latency using self-hosted Sentry instance with a sample project.
+
+```
+Running 30s test @ http://localhost:8080/tunnel
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   323.22ms  167.05ms   1.54s    90.25%
+    Req/Sec   113.83     74.80   323.00     65.29%
+  38592 requests in 30.11s, 8.17MB read
+  Socket errors: connect 0, read 388, write 0, timeout 0
+Requests/sec:   1281.89
+Transfer/sec:    277.91KB
+```
+
 <!-- Links -->
 [sentry-tunnel-docs]: https://docs.sentry.io/platforms/javascript/troubleshooting/#using-the-tunnel-option

@@ -20,3 +20,7 @@ sample:
 .PHONY: benchmark
 benchmark:
 	wrk -t12 -c400 -d30s -s benchmarks/envelope.lua http://localhost:8080/tunnel
+
+.PHONY: benchmarks/self-hosted.lua
+benchmarks/self-hosted.lua:
+	wrk -t12 -c400 -d30s -s $@ http://localhost:8080/tunnel
