@@ -251,7 +251,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
-		w.Write([]byte(`{"status":"ok"}`))
+		w.Write([]byte(fmt.Sprintf(`{"tunnel_id":"%s"}`, tunnelID.String())))
 	}))
 
 	// Start the server
