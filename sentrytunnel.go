@@ -21,8 +21,9 @@ import (
 )
 
 var (
+	Name                = "sentrytunnel"
 	Version             = "dev"
-	HttpHeaderUserAgent = "sentry-tunnel/" + Version
+	HttpHeaderUserAgent = Name + "/" + Version
 )
 
 var (
@@ -81,7 +82,7 @@ func main() {
 	defer cancel()
 
 	cmd := cli.Command{
-		Name:    "sentry-tunnel",
+		Name:    Name,
 		Usage:   "A tunneling service for Sentry",
 		Version: Version,
 		Flags: []cli.Flag{
