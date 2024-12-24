@@ -180,17 +180,17 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 	// Register the tunnel handler
 	http.Handle("POST /tunnel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelopeBytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(500)
-			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			return
-
-		}
-
 		// Generate a new tunnel ID
 		tunnelID := uuid.New()
 		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
+
+		envelopeBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			level.Debug(logger).Log("msg", "Failed to read envelope", "tunnel_id", tunnelID.String(), "error", err)
+			w.WriteHeader(500)
+			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			return
+		}
 
 		// Simple CORS check
 		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
