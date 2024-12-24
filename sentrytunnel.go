@@ -30,9 +30,6 @@ var (
 var (
 	logger       log.Logger
 	sentrytunnel = &SentryTunnel{}
-
-	// ErrTunnelingToSentry is an error message for when there is an error tunneling to Sentry
-	ErrTunnelingToSentry = fmt.Errorf("error tunneling to sentry")
 )
 
 var (
@@ -253,7 +250,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
-		w.Write([]byte(fmt.Sprintf(`{"tunnel_id":"%s"}`, tunnelID.String())))
+		w.Write([]byte(`{"status":"ok"}`))
 	}))
 
 	// Start the server
