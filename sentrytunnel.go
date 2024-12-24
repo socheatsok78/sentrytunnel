@@ -58,6 +58,7 @@ var (
 
 type SentryTunnel struct {
 	ListenAddr               string
+	LogLevel                 string
 	AccessControlAllowOrigin []string
 	TrustedSentryDSN         []string
 }
@@ -91,9 +92,10 @@ func main() {
 				Destination: &sentrytunnel.ListenAddr,
 			},
 			&cli.StringFlag{
-				Name:  "log-level",
-				Usage: "Set the log level",
-				Value: "info",
+				Name:        "log-level",
+				Usage:       "Set the log level",
+				Value:       "info",
+				Destination: &sentrytunnel.LogLevel,
 			},
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
