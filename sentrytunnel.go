@@ -194,6 +194,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		// Simple CORS check
 		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
+			level.Debug(logger).Log("msg", "Request from an untrusted origin", "tunnel_id", tunnelID.String(), "origin", r.Header.Get("Origin"))
 			w.WriteHeader(403)
 			w.Write([]byte(`{"error":"Origin not allowed"}`))
 			return
@@ -207,7 +208,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Debug(logger).Log("msg", "Failed to parse envelope", "tunnel_id", tunnelID.String(), "error", err)
+			level.Error(logger).Log("msg", "Failed to parse envelope", "tunnel_id", tunnelID.String(), "error", err)
 			return
 		}
 
