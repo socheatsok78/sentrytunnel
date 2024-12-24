@@ -167,8 +167,8 @@ func action(_ context.Context, cmd *cli.Command) error {
 	level.Info(logger).Log("msg", "Starting the "+cmd.Name, "version", cmd.Version)
 
 	if len(allowedOrigins) == 0 {
-		level.Warn(logger).Log("msg", "You are allowing all origins. We recommend you to specify the origins you trust. Please specify the --allowed-origin flag.")
 		sentrytunnel.AccessControlAllowOrigin = []string{"*"}
+		level.Warn(logger).Log("msg", "You are allowing all origins. We recommend you to specify the origins you trust. Please specify the --allowed-origin flag.")
 	}
 
 	if len(sentrytunnel.TrustedSentryDSN) == 0 {
