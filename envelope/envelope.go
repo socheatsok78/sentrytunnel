@@ -1,8 +1,8 @@
 package envelope
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
 )
 
 type Envelope struct {
@@ -10,11 +10,11 @@ type Envelope struct {
 	Items  []byte
 }
 
-func (e *Envelope) String() string {
+func (e *Envelope) Bytes() []byte {
 	bytes := []byte{}
-	bytes = append(bytes, []byte(e.Header.String())...)
+	bytes = append(bytes, e.Header.Bytes()...)
 	bytes = append(bytes, e.Items...)
-	return string(bytes)
+	return bytes
 }
 
 func Parse(bytes []byte) (*Envelope, error) {
@@ -27,8 +27,8 @@ func Parse(bytes []byte) (*Envelope, error) {
 	return envelope, nil
 }
 
-func Unmarshal(bytes []byte, envelope *Envelope) error {
-	lines := strings.SplitN(string(bytes), "\n", 2)
+func Unmarshal(data []byte, envelope *Envelope) error {
+	lines := bytes.SplitN(data, []byte("\n"), 2)
 
 	// Verify that the envelope has at least two lines
 	if len(lines) < 2 {
@@ -36,13 +36,13 @@ func Unmarshal(bytes []byte, envelope *Envelope) error {
 	}
 
 	// Parse the envelope header
-	envelopeHeader, err := parseEnvelopeHeader([]byte(lines[0]))
+	envelopeHeader, err := parseEnvelopeHeader(lines[0])
 	if err != nil {
 		return err
 	}
 
 	envelope.Header = *envelopeHeader
-	envelope.Items = []byte(lines[1])
+	envelope.Items = lines[1]
 
 	return nil
 }

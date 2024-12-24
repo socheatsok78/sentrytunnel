@@ -11,10 +11,10 @@ type EnvelopeHeader struct {
 	SentAt string `json:"sent_at"`
 }
 
-func (e *EnvelopeHeader) String() string {
+func (e *EnvelopeHeader) Bytes() []byte {
 	bytes, _ := json.Marshal(e)
 	bytes = append(bytes, []byte("\n")...)
-	return string(bytes)
+	return bytes
 }
 
 func parseEnvelopeHeader(bytes []byte) (*EnvelopeHeader, error) {

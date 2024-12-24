@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/avast/retry-go/v4"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -239,7 +240,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		SentryEnvelopeAccepted.Inc()
 
 		// Tunnel the envelope to Sentry
-		data := []byte(envelope.String())
+		data := envelope.Bytes()
 		if err := tunnel(tunnelID.String(), dsn, data); err != nil {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
@@ -295,16 +296,17 @@ func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
 	req.Header.Set("User-Agent", HttpHeaderUserAgent)
 	req.Header.Set("X-Sentry-Tunnel-Id", tunnelID)
 
-	// Forward the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to forward envelope: %w", err)
-	}
+	// Sending the request, with retries
+	err := retry.Do(func() error {
+		resp, _ := http.DefaultClient.Do(req)
 
-	// Check the status code
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
+		// Check the status code
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		}
 
-	return nil
+		return nil
+	}, retry.Attempts(5))
+
+	return err
 }
