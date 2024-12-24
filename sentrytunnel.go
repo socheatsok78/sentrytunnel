@@ -187,23 +187,10 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		// Generate a new tunnel ID
 		tunnelID := uuid.New()
-
-		// Set the CORS header
 		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
 
 		// Simple CORS check
-		isOriginAllowed := false
-		if r.Header.Get("Origin") != "" {
-			origin := r.Header.Get("Origin")
-			for _, allowedOrigin := range sentrytunnel.AccessControlAllowOrigin {
-				if allowedOrigin == "*" || allowedOrigin == origin {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-					isOriginAllowed = true
-					break
-				}
-			}
-		}
-		if !isOriginAllowed {
+		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
 			w.WriteHeader(403)
 			w.Write([]byte(`{"error":"Origin not allowed"}`))
 			return
@@ -267,6 +254,19 @@ func action(_ context.Context, cmd *cli.Command) error {
 	// Start the server
 	level.Info(logger).Log("msg", "The server is listening on "+sentrytunnel.ListenAddr)
 	return http.ListenAndServe(sentrytunnel.ListenAddr, nil)
+}
+
+func verifyRequestOrigin(w http.ResponseWriter, r *http.Request, allowedOrigins []string) bool {
+	if r.Header.Get("Origin") != "" {
+		origin := r.Header.Get("Origin")
+		for _, allowedOrigin := range allowedOrigins {
+			if allowedOrigin == "*" || allowedOrigin == origin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
