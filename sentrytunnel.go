@@ -33,26 +33,30 @@ var (
 )
 
 var (
-	// SentryEnvelopeAccepted is a Prometheus counter for the number of envelopes accepted by the tunnel
-	SentryEnvelopeAccepted = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_accepted",
+	// SentryEnvelopeAcceptedTotal is a Prometheus counter for the number of envelopes accepted by the tunnel
+	SentryEnvelopeAcceptedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentry_envelope_accepted_total",
 		Help: "The number of envelopes accepted by the tunnel",
 	})
-	// SentryEnvelopeRejected is a Prometheus counter for the number of envelopes rejected by the tunnel
-	SentryEnvelopeRejected = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_rejected",
+	// SentryEnvelopeRejectedTotal is a Prometheus counter for the number of envelopes rejected by the tunnel
+	SentryEnvelopeRejectedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentry_envelope_rejected_total",
 		Help: "The number of envelopes rejected by the tunnel",
 	})
-	// SentryEnvelopeForwardedSuccess is a Prometheus counter for the number of envelopes successfully forwarded by the tunnel
-	SentryEnvelopeForwardedSuccess = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_forward_success",
+	// SentryEnvelopeForwardedSuccessTotal is a Prometheus counter for the number of envelopes successfully forwarded by the tunnel
+	SentryEnvelopeForwardedSuccessTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentry_envelope_forward_success_total",
 		Help: "The number of envelopes successfully forwarded by the tunnel",
 	})
-	// SentryEnvelopeForwardedError is a Prometheus counter for the number of envelopes that failed to be forwarded by the tunnel
-	SentryEnvelopeForwardedError = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_forward_error",
+	// SentryEnvelopeForwardedErrorTotal is a Prometheus counter for the number of envelopes that failed to be forwarded by the tunnel
+	SentryEnvelopeForwardedErrorTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentry_envelope_forward_error_total",
 		Help: "The number of envelopes that failed to be forwarded by the tunnel",
 	})
+	HttpRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "The total number of HTTP requests",
+	}, []string{"method", "path", "status"})
 )
 
 type SentryTunnel struct {
@@ -69,10 +73,11 @@ func init() {
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
 	// Register Prometheus metrics
-	prometheus.MustRegister(SentryEnvelopeAccepted)
-	prometheus.MustRegister(SentryEnvelopeRejected)
-	prometheus.MustRegister(SentryEnvelopeForwardedSuccess)
-	prometheus.MustRegister(SentryEnvelopeForwardedError)
+	prometheus.MustRegister(SentryEnvelopeAcceptedTotal)
+	prometheus.MustRegister(SentryEnvelopeRejectedTotal)
+	prometheus.MustRegister(SentryEnvelopeForwardedSuccessTotal)
+	prometheus.MustRegister(SentryEnvelopeForwardedErrorTotal)
+	prometheus.MustRegister(HttpRequestsTotal)
 }
 
 func main() {
@@ -177,19 +182,11 @@ func action(_ context.Context, cmd *cli.Command) error {
 	http.Handle("GET /metrics", promhttp.Handler())
 
 	// Register the tunnel handler
-	http.Handle("POST /tunnel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("POST /tunnel", cors(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Generate a new tunnel ID
 		tunnelID := uuid.New()
 		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
 		level.Debug(logger).Log("msg", "Tunnel request received", "tunnel_id", tunnelID.String())
-
-		// Simple CORS check
-		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
-			level.Debug(logger).Log("msg", "Request from an untrusted origin", "tunnel_id", tunnelID.String(), "origin", r.Header.Get("Origin"))
-			w.WriteHeader(403)
-			w.Write([]byte(`{"error":"Origin not allowed"}`))
-			return
-		}
 
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -204,7 +201,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		envelope, err := envelope.Parse(envelopeBytes)
 		if err != nil {
-			SentryEnvelopeRejected.Inc()
+			SentryEnvelopeRejectedTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to parse envelope", "tunnel_id", tunnelID.String(), "error", err)
@@ -214,7 +211,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Parse the DSN into a URL object
 		upstreamSentryDSN, err := url.Parse(envelope.Header.DSN)
 		if err != nil {
-			SentryEnvelopeRejected.Inc()
+			SentryEnvelopeRejectedTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to parse envelope DSN", "tunnel_id", tunnelID.String(), "error", err)
@@ -226,7 +223,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		if len(sentrytunnel.TrustedSentryDSN) > 0 {
 			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN))
 			if err := isTrustedDSN(upstreamSentryDSN, sentrytunnel.TrustedSentryDSN); err != nil {
-				SentryEnvelopeRejected.Inc()
+				SentryEnvelopeRejectedTotal.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 				level.Error(logger).Log("msg", "Rejected envelope", "tunnel_id", tunnelID.String(), "error", err)
@@ -241,11 +238,11 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		// Increase the Prometheus counter
 		level.Info(logger).Log("msg", "Sending envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
-		SentryEnvelopeAccepted.Inc()
+		SentryEnvelopeAcceptedTotal.Inc()
 
 		// Tunnel the envelope to Sentry
 		if err := tunnel(tunnelID.String(), upstreamSentryDSN, data); err != nil {
-			SentryEnvelopeForwardedError.Inc()
+			SentryEnvelopeForwardedErrorTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to send the envelope to Sentry", "tunnel_id", tunnelID.String(), "error", err)
@@ -253,45 +250,15 @@ func action(_ context.Context, cmd *cli.Command) error {
 		}
 
 		level.Debug(logger).Log("msg", "Successfully sent the envelope to Sentry", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
-		SentryEnvelopeForwardedSuccess.Inc()
+		SentryEnvelopeForwardedSuccessTotal.Inc()
 
 		w.WriteHeader(200)
 		w.Write([]byte(`{"status":"ok"}`))
-	}))
+	})))
 
 	// Start the server
 	level.Info(logger).Log("msg", "The server is listening on "+sentrytunnel.ListenAddr)
 	return http.ListenAndServe(sentrytunnel.ListenAddr, nil)
-}
-
-func verifyRequestOrigin(w http.ResponseWriter, r *http.Request, allowedOrigins []string) bool {
-	if r.Header.Get("Origin") != "" {
-		origin := r.Header.Get("Origin")
-		for _, allowedOrigin := range allowedOrigins {
-			if allowedOrigin == "*" || allowedOrigin == origin {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
-	for _, trustedDSN := range trustedDSNs {
-		trustedUrl, err := url.Parse(trustedDSN)
-		if err != nil {
-			return fmt.Errorf("invalid trusted DSN: %s", trustedDSN)
-		}
-		if dsn.Host+dsn.Path == trustedUrl.Host+trustedUrl.Path {
-			return nil
-		}
-	}
-	return fmt.Errorf("untrusted DSN: %s", dsn)
-}
-
-func sanatizeDsn(dsn *url.URL) string {
-	return dsn.Host + dsn.Path
 }
 
 func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
@@ -316,4 +283,37 @@ func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
 	}, retry.Attempts(5))
 
 	return err
+}
+
+func sanatizeDsn(dsn *url.URL) string {
+	return dsn.Host + dsn.Path
+}
+
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Origin") != "" {
+			origin := r.Header.Get("Origin")
+			for _, allowedOrigin := range sentrytunnel.AccessControlAllowOrigin {
+				if allowedOrigin == "*" || allowedOrigin == origin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
+				http.Error(w, "Request from an untrusted origin", http.StatusForbidden)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
+	for _, trustedDSN := range trustedDSNs {
+		trustedUrl, err := url.Parse(trustedDSN)
+		if err != nil {
+			return fmt.Errorf("invalid trusted DSN: %s", trustedDSN)
+		}
+		if dsn.Host+dsn.Path == trustedUrl.Host+trustedUrl.Path {
+			return nil
+		}
+	}
+	return fmt.Errorf("untrusted DSN: %s", dsn)
 }
