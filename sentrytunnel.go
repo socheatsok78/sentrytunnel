@@ -181,6 +181,15 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Generate a new tunnel ID
 		tunnelID := uuid.New()
 		w.Header().Set("X-Sentry-Tunnel-Id", tunnelID.String())
+		level.Debug(logger).Log("msg", "Tunnel request received", "tunnel_id", tunnelID.String())
+
+		// Simple CORS check
+		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
+			level.Debug(logger).Log("msg", "Request from an untrusted origin", "tunnel_id", tunnelID.String(), "origin", r.Header.Get("Origin"))
+			w.WriteHeader(403)
+			w.Write([]byte(`{"error":"Origin not allowed"}`))
+			return
+		}
 
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -192,14 +201,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
 		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
-
-		// Simple CORS check
-		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
-			level.Debug(logger).Log("msg", "Request from an untrusted origin", "tunnel_id", tunnelID.String(), "origin", r.Header.Get("Origin"))
-			w.WriteHeader(403)
-			w.Write([]byte(`{"error":"Origin not allowed"}`))
-			return
-		}
 
 		envelope, err := envelope.Parse(envelopeBytes)
 		if err != nil {
@@ -251,7 +252,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
-		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
+		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
