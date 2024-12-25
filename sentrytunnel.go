@@ -200,7 +200,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		}
 
 		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
-		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
+		level.Debug(logger).Log("msg", "Reading envelope", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
 
 		envelope, err := envelope.Parse(envelopeBytes)
 		if err != nil {
@@ -240,7 +240,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		level.Debug(logger).Log("msg", "Repackaging envelope", "tunnel_id", tunnelID.String(), "type", envelope.Type.Type, "size", dataBytesPretty)
 
 		// Increase the Prometheus counter
-		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
+		level.Info(logger).Log("msg", "Sending envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
 		SentryEnvelopeAccepted.Inc()
 
 		// Tunnel the envelope to Sentry
@@ -248,11 +248,11 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "tunnel_id", tunnelID.String(), "error", err)
+			level.Error(logger).Log("msg", "Failed to send the envelope to Sentry", "tunnel_id", tunnelID.String(), "error", err)
 			return
 		}
 
-		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
+		level.Debug(logger).Log("msg", "Successfully sent the envelope to Sentry", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
