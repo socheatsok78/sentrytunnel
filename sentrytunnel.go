@@ -237,7 +237,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Repack the envelope
 		data := envelope.Bytes()
 		dataBytesPretty := humanize.Bytes(uint64(len(data)))
-		level.Debug(logger).Log("msg", "Repacked envelope", "tunnel_id", tunnelID.String(), "type", envelope.Type.Type, "size", dataBytesPretty)
+		level.Debug(logger).Log("msg", "Repackaging envelope", "tunnel_id", tunnelID.String(), "type", envelope.Type.Type, "size", dataBytesPretty)
 
 		// Increase the Prometheus counter
 		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
