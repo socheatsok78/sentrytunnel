@@ -190,6 +190,9 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
+		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
+		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
+
 		// Simple CORS check
 		if ok := verifyRequestOrigin(w, r, sentrytunnel.AccessControlAllowOrigin); !ok {
 			level.Debug(logger).Log("msg", "Request from an untrusted origin", "tunnel_id", tunnelID.String(), "origin", r.Header.Get("Origin"))
@@ -197,9 +200,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 			w.Write([]byte(`{"error":"Origin not allowed"}`))
 			return
 		}
-
-		envelopeBytesPretty := humanize.Bytes(uint64(r.ContentLength))
-		level.Debug(logger).Log("msg", "Envelope received", "tunnel_id", tunnelID.String(), "size", envelopeBytesPretty)
 
 		envelope, err := envelope.Parse(envelopeBytes)
 		if err != nil {
@@ -211,7 +211,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		}
 
 		// Parse the DSN into a URL object
-		dsn, err := url.Parse(envelope.Header.DSN)
+		upstreamSentryDSN, err := url.Parse(envelope.Header.DSN)
 		if err != nil {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
@@ -223,8 +223,8 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Check if the DSN is trusted, it is possible for trustedDSNs to be empty
 		// If trustedDSNs is empty, we trust all DSNs
 		if len(sentrytunnel.TrustedSentryDSN) > 0 {
-			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "tunnel_id", tunnelID.String(), "dsn", dsn.Host+dsn.Path)
-			if err := isTrustedDSN(dsn, sentrytunnel.TrustedSentryDSN); err != nil {
+			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN))
+			if err := isTrustedDSN(upstreamSentryDSN, sentrytunnel.TrustedSentryDSN); err != nil {
 				SentryEnvelopeRejected.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
@@ -233,12 +233,17 @@ func action(_ context.Context, cmd *cli.Command) error {
 			}
 		}
 
-		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", dsn.Host+dsn.Path, "size", envelopeBytesPretty)
+		// Repack the envelope
+		data := envelope.Bytes()
+		dataBytesPretty := humanize.Bytes(uint64(len(data)))
+		level.Debug(logger).Log("msg", "Repacked envelope", "tunnel_id", tunnelID.String(), "type", envelope.Type.Type, "size", dataBytesPretty)
+
+		// Increase the Prometheus counter
+		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
 		SentryEnvelopeAccepted.Inc()
 
 		// Tunnel the envelope to Sentry
-		data := envelope.Bytes()
-		if err := tunnel(tunnelID.String(), dsn, data); err != nil {
+		if err := tunnel(tunnelID.String(), upstreamSentryDSN, data); err != nil {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
@@ -246,7 +251,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
-		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", dsn.Host+dsn.Path, "size", envelopeBytesPretty)
+		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
@@ -282,6 +287,10 @@ func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
 		}
 	}
 	return fmt.Errorf("untrusted DSN: %s", dsn)
+}
+
+func sanatizeDsn(dsn *url.URL) string {
+	return dsn.Host + dsn.Path
 }
 
 func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
