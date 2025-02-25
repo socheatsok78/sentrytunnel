@@ -22,7 +22,7 @@ bin/sentrytunnel:
 docker/build:
 	docker buildx bake --load dev
 docker/run:
-	docker run --rm -it -p 8080:8080 socheatsok78/sentry-tunnel:dev
+	docker run --rm -it -p 8080:8080 socheatsok78/sentrytunnel:dev
 
 .PHONY: benchmark
 benchmark:

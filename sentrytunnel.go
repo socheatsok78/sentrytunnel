@@ -15,8 +15,6 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/socheatsok78/sentrytunnel/envelope"
 	"github.com/urfave/cli/v3"
 )
@@ -32,33 +30,6 @@ var (
 	sentrytunnel = &SentryTunnel{}
 )
 
-var (
-	// SentryEnvelopeAcceptedTotal is a Prometheus counter for the number of envelopes accepted by the tunnel
-	SentryEnvelopeAcceptedTotal = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_accepted_total",
-		Help: "The number of envelopes accepted by the tunnel",
-	})
-	// SentryEnvelopeRejectedTotal is a Prometheus counter for the number of envelopes rejected by the tunnel
-	SentryEnvelopeRejectedTotal = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_rejected_total",
-		Help: "The number of envelopes rejected by the tunnel",
-	})
-	// SentryEnvelopeForwardedSuccessTotal is a Prometheus counter for the number of envelopes successfully forwarded by the tunnel
-	SentryEnvelopeForwardedSuccessTotal = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_forward_success_total",
-		Help: "The number of envelopes successfully forwarded by the tunnel",
-	})
-	// SentryEnvelopeForwardedErrorTotal is a Prometheus counter for the number of envelopes that failed to be forwarded by the tunnel
-	SentryEnvelopeForwardedErrorTotal = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "sentry_envelope_forward_error_total",
-		Help: "The number of envelopes that failed to be forwarded by the tunnel",
-	})
-	HttpRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "http_requests_total",
-		Help: "The total number of HTTP requests",
-	}, []string{"method", "path", "status"})
-)
-
 type SentryTunnel struct {
 	ListenAddr               string
 	LogLevel                 string
@@ -71,13 +42,6 @@ func init() {
 	logger = log.NewLogfmtLogger(os.Stdout)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-
-	// Register Prometheus metrics
-	prometheus.MustRegister(SentryEnvelopeAcceptedTotal)
-	prometheus.MustRegister(SentryEnvelopeRejectedTotal)
-	prometheus.MustRegister(SentryEnvelopeForwardedSuccessTotal)
-	prometheus.MustRegister(SentryEnvelopeForwardedErrorTotal)
-	prometheus.MustRegister(HttpRequestsTotal)
 }
 
 func main() {
@@ -178,9 +142,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 		level.Warn(logger).Log("msg", "You are trusting all Sentry DSNs. We recommend you to specify the DSNs you trust. Please specify the --trusted-sentry-dsn flag.")
 	}
 
-	// Register Prometheus metrics handler
-	http.Handle("GET /metrics", promhttp.Handler())
-
 	// Register the tunnel handler
 	http.Handle("POST /tunnel", cors(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Generate a new tunnel ID
@@ -201,7 +162,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 
 		envelope, err := envelope.Parse(envelopeBytes)
 		if err != nil {
-			SentryEnvelopeRejectedTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to parse envelope", "tunnel_id", tunnelID.String(), "error", err)
@@ -211,7 +171,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Parse the DSN into a URL object
 		upstreamSentryDSN, err := url.Parse(envelope.Header.DSN)
 		if err != nil {
-			SentryEnvelopeRejectedTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to parse envelope DSN", "tunnel_id", tunnelID.String(), "error", err)
@@ -223,7 +182,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 		if len(sentrytunnel.TrustedSentryDSN) > 0 {
 			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN))
 			if err := isTrustedDSN(upstreamSentryDSN, sentrytunnel.TrustedSentryDSN); err != nil {
-				SentryEnvelopeRejectedTotal.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 				level.Error(logger).Log("msg", "Rejected envelope", "tunnel_id", tunnelID.String(), "error", err)
@@ -236,13 +194,9 @@ func action(_ context.Context, cmd *cli.Command) error {
 		dataBytesPretty := humanize.Bytes(uint64(len(data)))
 		level.Debug(logger).Log("msg", "Repackaging envelope", "tunnel_id", tunnelID.String(), "type", envelope.Type.Type, "dsn", sanatizeDsn(upstreamSentryDSN), "size", dataBytesPretty)
 
-		// Increase the Prometheus counter
-		level.Info(logger).Log("msg", "Sending envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
-		SentryEnvelopeAcceptedTotal.Inc()
-
 		// Tunnel the envelope to Sentry
+		level.Info(logger).Log("msg", "Sending envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "type", envelope.Type.Type, "size", envelopeBytesPretty)
 		if err := tunnel(tunnelID.String(), upstreamSentryDSN, data); err != nil {
-			SentryEnvelopeForwardedErrorTotal.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to send the envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "error", err)
@@ -250,7 +204,6 @@ func action(_ context.Context, cmd *cli.Command) error {
 		}
 
 		level.Debug(logger).Log("msg", "Successfully sent the envelope to Sentry", "tunnel_id", tunnelID.String(), "dsn", sanatizeDsn(upstreamSentryDSN), "size", envelopeBytesPretty)
-		SentryEnvelopeForwardedSuccessTotal.Inc()
 
 		w.WriteHeader(200)
 		w.Write([]byte(`{"status":"ok"}`))
@@ -272,11 +225,16 @@ func tunnel(tunnelID string, dsn *url.URL, data []byte) error {
 
 	// Sending the request, with retries
 	err := retry.Do(func() error {
-		resp, _ := http.DefaultClient.Do(req)
+		resp, err := http.DefaultClient.Do(req)
+
+		// Check if there was an error
+		if err != nil {
+			return fmt.Errorf("failed to send the envelope to upstream: %s", err)
+		}
 
 		// Check the status code
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			return fmt.Errorf("upstream return unexpected status code: %d", resp.StatusCode)
 		}
 
 		return nil
