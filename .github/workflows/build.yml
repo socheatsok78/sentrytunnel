@@ -58,13 +58,13 @@ jobs:
         uses: dockerbakery/github-metadata-action@v2
 
       - name: Build and push
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@v6
         with:
           push: ${{ github.event_name != 'pull_request' }}
           files: |
             ./docker-bake.hcl
-            ${{ steps.docker-meta.outputs.bake-file }}
-            ${{ steps.github-meta.outputs.bake-file }}
+            cwd://${{ steps.docker-meta.outputs.bake-file }}
+            cwd://${{ steps.github-meta.outputs.bake-file }}
           set: |
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max
