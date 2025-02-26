@@ -14,6 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
 	"github.com/socheatsok78/sentrytunnel/envelope"
 	"github.com/urfave/cli/v3"
 )
@@ -35,7 +37,20 @@ type SentryTunnel struct {
 }
 
 // SentryTunnel
-var sentrytunnel = &SentryTunnel{}
+var (
+	logger       log.Logger
+	sentrytunnel = &SentryTunnel{}
+)
+
+func init() {
+	// Setup logger
+	logger = log.NewLogfmtLogger(os.Stdout)
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	// Configure the log level
+	level.NewFilter(logger, level.AllowAll())
+}
 
 func Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -127,16 +142,30 @@ func action(_ context.Context, _ *cli.Command) error {
 			dsn := r.Context().Value("dsn").(*sentry.Dsn)
 			payload := r.Context().Value("payload").(*envelope.Envelope)
 
-			// Sending the payload to Sentry
-			_, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, bytes.NewReader(payload.Bytes()))
+			// TODO: Implement post-processing of the payload
+
+			// Sending the payload to upstream
+			level.Info(logger).Log("msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
+			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, bytes.NewReader(payload.Bytes()))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer res.Body.Close()
+			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			// Send the ok response
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte("{\"status\": \"ok\"}"))
+			// Respond to the client with the upstream's response
+			level.Info(logger).Log("msg", "received response from sentry", "status", res.StatusCode)
+			if res.StatusCode != http.StatusOK {
+				http.Error(w, string(body), res.StatusCode)
+				return
+			}
+			w.Header().Set("Content-Type", res.Header.Get("Content-Type"))
+			w.Write(body)
 		})
 	})
 
@@ -146,6 +175,8 @@ func action(_ context.Context, _ *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		level.Info(logger).Log("msg", "received request", "method", r.Method, "url", r.URL.String())
+
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
