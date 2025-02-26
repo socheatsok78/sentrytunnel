@@ -43,14 +43,15 @@ var (
 	sentrytunnel = &SentryTunnel{}
 )
 
-func Run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func init() {
 	// Setup logger
 	logger = log.NewLogfmtLogger(os.Stdout)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
-	logger = log.With(logger, "caller", log.DefaultCaller)
+}
+
+func Run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	cmd := cli.Command{
 		Name:    Name,
@@ -111,8 +112,10 @@ func Run() error {
 			}
 			return ctx, nil
 		},
-
-		Action: func(ctx context.Context, c *cli.Command) error { return action(ctx, c) },
+		Action: func(ctx context.Context, c *cli.Command) error {
+			level.Info(logger).Log("msg", "starting the "+Name, "version", Version)
+			return action(ctx, c)
+		},
 	}
 
 	return cmd.Run(ctx, os.Args)
@@ -184,6 +187,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	})
 
 	// Start the server
+	level.Info(logger).Log("msg", fmt.Sprintf("the server is listening on %s", sentrytunnel.ListenAddress))
 	return http.ListenAndServe(sentrytunnel.ListenAddress, r)
 }
 
