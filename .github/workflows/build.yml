@@ -46,7 +46,7 @@ jobs:
         with:
           images: |
             docker.io/${{ github.repository }}
-            ghcr.io/${{ github.actor }}
+            ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
