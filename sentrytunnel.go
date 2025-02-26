@@ -48,9 +48,6 @@ func init() {
 	logger = log.NewLogfmtLogger(os.Stdout)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-
-	// Configure the log level
-	level.NewFilter(logger, level.AllowAll())
 }
 
 func Run() error {
@@ -101,6 +98,22 @@ func Run() error {
 				},
 			},
 		},
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			switch c.String("log-level") {
+			case "debug":
+				logger = level.NewFilter(logger, level.AllowDebug())
+			case "info":
+				logger = level.NewFilter(logger, level.AllowInfo())
+			case "warn":
+				logger = level.NewFilter(logger, level.AllowWarn())
+			case "error":
+				logger = level.NewFilter(logger, level.AllowError())
+			default:
+				logger = level.NewFilter(logger, level.AllowNone())
+			}
+			return ctx, nil
+		},
+
 		Action: func(ctx context.Context, c *cli.Command) error { return action(ctx, c) },
 	}
 
@@ -119,7 +132,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	// CORS
 	r.Use(cors.Handler((cors.Options{
 		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
-		Debug:          true,
+		Debug:          sentrytunnel.LoggingLevel == "debug",
 	})))
 
 	// Heartbeat
