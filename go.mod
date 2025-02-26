@@ -1,6 +1,6 @@
 module github.com/socheatsok78/sentrytunnel
 
-go 1.23.5
+go 1.23.0
 
 require (
 	github.com/getsentry/sentry-go v0.31.1
