@@ -12,6 +12,7 @@ require (
 
 require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )

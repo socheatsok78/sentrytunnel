@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/google/uuid"
 	"github.com/socheatsok78/sentrytunnel/envelope"
 	"github.com/urfave/cli/v3"
 )
@@ -138,6 +139,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	r.Route("/tunnel", func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			id := r.Context().Value("id").(string)
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value("dsn").(*sentry.Dsn)
 			payload := r.Context().Value("payload").(*envelope.Envelope)
@@ -145,7 +147,7 @@ func action(_ context.Context, _ *cli.Command) error {
 			// TODO: Implement post-processing of the payload
 
 			// Sending the payload to upstream
-			level.Info(logger).Log("msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
+			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
 			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, bytes.NewReader(payload.Bytes()))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -159,7 +161,7 @@ func action(_ context.Context, _ *cli.Command) error {
 			}
 
 			// Respond to the client with the upstream's response
-			level.Info(logger).Log("msg", "received response from sentry", "status", res.StatusCode)
+			level.Info(logger).Log("id", id, "msg", "received response from sentry", "status", res.StatusCode)
 			if res.StatusCode != http.StatusOK {
 				http.Error(w, string(body), res.StatusCode)
 				return
@@ -175,7 +177,11 @@ func action(_ context.Context, _ *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		level.Info(logger).Log("msg", "received request", "method", r.Method, "url", r.URL.String())
+		id := uuid.New().String()
+		level.Info(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
+
+		// Set the tunnel ID to the response header
+		w.Header().Set("X-Sentry-Tunnel-ID", id)
 
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
@@ -200,6 +206,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 
 		// Set the DSN and payload to the context
 		ctx := r.Context()
+		ctx = context.WithValue(ctx, "id", id)
 		ctx = context.WithValue(ctx, "dsn", dsn)
 		ctx = context.WithValue(ctx, "payload", payload)
 
