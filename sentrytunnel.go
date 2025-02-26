@@ -21,6 +21,7 @@ import (
 var (
 	Name                  = "sentrytunnel"
 	Version               = "dev"
+	HttpHeaderServer      = Name + "/" + Version
 	HttpHeaderUserAgent   = Name + "/" + Version
 	HttpHeaderContentType = "application/x-sentry-envelope"
 )
@@ -95,7 +96,9 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(SentryTunnelMiddleware)
+
+	// Set the server header
+	r.Use(middleware.SetHeader("Server", HttpHeaderServer))
 
 	// CORS
 	r.Use(cors.Handler((cors.Options{
