@@ -21,9 +21,6 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -48,8 +45,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            docker.io/${{ github.actor }}/sentrytunnel
-            ghcr.io/${{ github.actor }}/sentrytunnel
+            docker.io/${{ github.repository }}
+            ghcr.io/${{ github.actor }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -61,7 +58,7 @@ jobs:
         uses: dockerbakery/github-metadata-action@v2
 
       - name: Build and push
-        uses: docker/bake-action@v4
+        uses: docker/bake-action@v5
         with:
           push: ${{ github.event_name != 'pull_request' }}
           files: |
@@ -71,6 +68,3 @@ jobs:
           set: |
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max
-
-      - name: Docker Metadata Summary
-        uses: dockerbakery/docker-metadata-summary@v1
