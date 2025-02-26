@@ -95,6 +95,7 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(SentryTunnelMiddleware)
 
 	// CORS
 	r.Use(cors.Handler((cors.Options{
