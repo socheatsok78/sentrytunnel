@@ -144,13 +144,6 @@ func action(_ context.Context, _ *cli.Command) error {
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	if sentrytunnel.TunnelURLPath != "/" {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte("OK"))
-		})
-	}
-
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
