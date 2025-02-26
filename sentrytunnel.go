@@ -43,16 +43,14 @@ var (
 	sentrytunnel = &SentryTunnel{}
 )
 
-func init() {
+func Run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Setup logger
 	logger = log.NewLogfmtLogger(os.Stdout)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-}
-
-func Run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	cmd := cli.Command{
 		Name:    Name,
@@ -153,6 +151,7 @@ func action(_ context.Context, _ *cli.Command) error {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			id := r.Context().Value("id").(string)
+
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value("dsn").(*sentry.Dsn)
 			payload := r.Context().Value("payload").(*envelope.Envelope)
@@ -174,7 +173,7 @@ func action(_ context.Context, _ *cli.Command) error {
 			}
 
 			// Respond to the client with the upstream's response
-			level.Info(logger).Log("id", id, "msg", "received response from sentry", "status", res.StatusCode)
+			level.Info(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
 			if res.StatusCode != http.StatusOK {
 				http.Error(w, string(body), res.StatusCode)
 				return
@@ -200,6 +199,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			level.Error(logger).Log("id", id, "msg", "error reading request body", "err", err)
 			return
 		}
 
@@ -207,6 +207,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
 			return
 		}
 
@@ -214,6 +215,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
 			return
 		}
 
