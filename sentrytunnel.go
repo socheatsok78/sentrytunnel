@@ -142,8 +142,6 @@ func action(_ context.Context, _ *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -166,6 +164,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Set the DSN and payload to the context
+		ctx := r.Context()
 		ctx = context.WithValue(ctx, "dsn", dsn)
 		ctx = context.WithValue(ctx, "payload", payload)
 
