@@ -119,6 +119,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	r.Route("/tunnel", func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			// Get the DSN and payload from the context
 			dsn := r.Context().Value("dsn").(*sentry.Dsn)
 			payload := r.Context().Value("payload").(*envelope.Envelope)
 
@@ -128,6 +129,10 @@ func action(_ context.Context, _ *cli.Command) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			// Send the ok response
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{\"status\": \"ok\"}"))
 		})
 	})
 
@@ -139,27 +144,32 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
+		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		// Parse the envelope
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		// Parse the DSN
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		// Set the DSN and payload to the context
 		ctx = context.WithValue(ctx, "dsn", dsn)
 		ctx = context.WithValue(ctx, "payload", payload)
 
+		// Call the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
