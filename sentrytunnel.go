@@ -3,9 +3,13 @@ package sentrytunnel
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -15,7 +19,7 @@ var (
 	HttpHeaderUserAgent = Name + "/" + Version
 )
 
-type sentrytunnel struct {
+type SentryTunnel struct {
 	ListenAddress            string
 	TunnelURLPath            string
 	LoggingLevel             string
@@ -23,7 +27,7 @@ type sentrytunnel struct {
 	TrustedSentryDSN         []string
 }
 
-var SentryTunnel = &sentrytunnel{}
+var sentrytunnel = &SentryTunnel{}
 
 func Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,24 +42,24 @@ func Run() error {
 				Name:        "listen-addr",
 				Usage:       "The address to listen on",
 				Value:       ":8080",
-				Destination: &SentryTunnel.ListenAddress,
+				Destination: &sentrytunnel.ListenAddress,
 			},
 			&cli.StringFlag{
 				Name:        "tunnel-path",
 				Usage:       "The URL path for the tunnel to process the requests",
 				Value:       "/tunnel",
-				Destination: &SentryTunnel.TunnelURLPath,
+				Destination: &sentrytunnel.TunnelURLPath,
 			},
 			&cli.StringFlag{
 				Name:        "log-level",
 				Usage:       "Set the log level",
 				Value:       "info",
-				Destination: &SentryTunnel.LoggingLevel,
+				Destination: &sentrytunnel.LoggingLevel,
 			},
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
-				Destination: &SentryTunnel.AccessControlAllowOrigin,
+				Destination: &sentrytunnel.AccessControlAllowOrigin,
 				Validator: func(s []string) error {
 					for _, origin := range s {
 						if origin == "*" {
@@ -80,5 +84,19 @@ func Run() error {
 }
 
 func action(_ context.Context, _ *cli.Command) error {
-	return ListenAndServe(SentryTunnel.ListenAddress)
+	r := chi.NewRouter()
+
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Set a timeout value on the request context (ctx), that will signal
+	// through ctx.Done() that the request has timed out and further
+	// processing should be stopped.
+	r.Use(middleware.Timeout(60 * time.Second))
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("welcome"))
+	})
+
+	return http.ListenAndServe(sentrytunnel.ListenAddress, r)
 }
