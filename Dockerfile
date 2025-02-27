@@ -19,5 +19,5 @@ EOT
 FROM quay.io/prometheus/busybox-${TARGETOS}-${TARGETARCH}:latest
 ARG TARGETOS
 ARG TARGETARCH
-COPY --from=builder /sentrytunnel-$TARGETOS-$TARGETARCH /bin/sentrytunnel
-ENTRYPOINT [ "/bin/sentrytunnel" ]
+COPY --from=builder /sentrytunnel-$TARGETOS-$TARGETARCH /usr/local/bin/sentrytunnel
+ENTRYPOINT [ "/usr/local/bin/sentrytunnel" ]
