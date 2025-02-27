@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -165,14 +164,6 @@ func action(_ context.Context, _ *cli.Command) error {
 				return
 			}
 			defer res.Body.Close()
-
-			// Inherit the upstream's response headers
-			for k, v := range res.Header {
-				if strings.ToLower(k) == "access-control-allow-origin" {
-					continue
-				}
-				w.Header()[k] = v
-			}
 
 			// Read the response body
 			body, err := io.ReadAll(res.Body)
