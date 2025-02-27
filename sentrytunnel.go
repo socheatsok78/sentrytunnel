@@ -130,21 +130,14 @@ func Run() error {
 
 func action(_ context.Context, _ *cli.Command) error {
 	r := chi.NewRouter()
-
-	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-
-	// Set the server header
 	r.Use(middleware.SetHeader("Server", HttpHeaderServer))
+	r.Use(middleware.Heartbeat("/heartbeat"))
 
 	// CORS
 	r.Use(cors.Handler((cors.Options{
 		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
-		Debug:          sentrytunnel.LoggingLevel == "debug",
 	})))
-
-	// Heartbeat
-	r.Use(middleware.Heartbeat("/heartbeat"))
 
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
