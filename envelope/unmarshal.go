@@ -23,7 +23,7 @@ func Unmarshal(data []byte, envelope *Envelope) error {
 	envelope.Header = *envelopeHeader
 
 	// Set the payload
-	envelope.Payload = lines[1]
+	envelope.Payload.RawBytes = lines[1]
 
 	// Return nil to indicate success
 	return nil
