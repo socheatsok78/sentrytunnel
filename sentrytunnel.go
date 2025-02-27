@@ -43,6 +43,14 @@ var (
 	sentrytunnel = &SentryTunnel{}
 )
 
+type contextKey string
+
+const (
+	contextKeyID      contextKey = "id"
+	contextKeyDSN     contextKey = "dsn"
+	contextKeyPayload contextKey = "payload"
+)
+
 func init() {
 	// Setup logger
 	logger = log.NewLogfmtLogger(os.Stdout)
@@ -148,11 +156,11 @@ func action(_ context.Context, _ *cli.Command) error {
 	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			id := r.Context().Value("id").(string)
+			id := r.Context().Value(contextKeyID).(string)
 
 			// Get the DSN and payload from the context
-			dsn := r.Context().Value("dsn").(*sentry.Dsn)
-			payload := r.Context().Value("payload").(*envelope.Envelope)
+			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
+			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
 			// TODO: Implement post-processing of the payload
 
@@ -221,9 +229,9 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 
 		// Set the DSN and payload to the context
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "id", id)
-		ctx = context.WithValue(ctx, "dsn", dsn)
-		ctx = context.WithValue(ctx, "payload", payload)
+		ctx = context.WithValue(ctx, contextKeyID, id)
+		ctx = context.WithValue(ctx, contextKeyDSN, dsn)
+		ctx = context.WithValue(ctx, contextKeyPayload, payload)
 
 		// Call the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
