@@ -1,7 +1,6 @@
 package sentrytunnel
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -164,7 +163,7 @@ func action(_ context.Context, _ *cli.Command) error {
 
 			// Sending the payload to upstream
 			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
-			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, bytes.NewReader(payload.Bytes()))
+			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, payload.NewReader())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
