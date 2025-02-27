@@ -6,21 +6,17 @@ import (
 )
 
 type EnvelopeHeader struct {
-	DSN      string `json:"dsn,omitempty"`
-	RawBytes []byte `json:"-"`
-}
-
-func (e *EnvelopeHeader) OmitDsnFromHeader() {
-	e.DSN = ""
+	DSN     string
+	Payload []byte
 }
 
 func (e *EnvelopeHeader) Bytes() []byte {
-	return e.RawBytes
+	return e.Payload
 }
 
 func parseEnvelopeHeader(bytes []byte) (*EnvelopeHeader, error) {
 	envelopeHeader := &EnvelopeHeader{
-		RawBytes: bytes,
+		Payload: bytes,
 	}
 
 	err := json.Unmarshal(bytes, envelopeHeader)

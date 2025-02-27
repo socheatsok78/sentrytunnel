@@ -1,9 +1,17 @@
 package envelope
 
 type EnvelopePayload struct {
-	RawBytes []byte `json:"-"`
+	Payload []byte
 }
 
 func (e *EnvelopePayload) Bytes() []byte {
-	return e.RawBytes
+	return e.Payload
+}
+
+func parseEnvelopePayload(bytes []byte) (*EnvelopePayload, error) {
+	envelopeHeader := &EnvelopePayload{
+		Payload: bytes,
+	}
+
+	return envelopeHeader, nil
 }

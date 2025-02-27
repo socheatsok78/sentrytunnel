@@ -14,16 +14,18 @@ func Unmarshal(data []byte, envelope *Envelope) error {
 	}
 
 	// Parse the envelope header
-	envelopeHeader, err := parseEnvelopeHeader(lines[0])
-	if err != nil {
+	if envelopeHeader, err := parseEnvelopeHeader(lines[0]); err == nil {
+		envelope.Header = *envelopeHeader
+	} else {
 		return err
 	}
 
-	// Set the header
-	envelope.Header = *envelopeHeader
-
-	// Set the payload
-	envelope.Payload.RawBytes = lines[1]
+	// Parse the envelope payload
+	if envelopePayload, err := parseEnvelopePayload(lines[1]); err == nil {
+		envelope.Payload = *envelopePayload
+	} else {
+		return err
+	}
 
 	// Return nil to indicate success
 	return nil

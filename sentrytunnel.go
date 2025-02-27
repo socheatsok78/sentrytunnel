@@ -162,8 +162,6 @@ func action(_ context.Context, _ *cli.Command) error {
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
 			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
-			// TODO: Implement post-processing of the payload
-
 			// Sending the payload to upstream
 			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
 			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, bytes.NewReader(payload.Bytes()))
