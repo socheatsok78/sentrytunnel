@@ -12,7 +12,7 @@ RUN --mount=type=bind,target=/app,source=. \
     export GOOS=linux
     for GOARCH in amd64 arm64; do
         export GOARCH
-        go build -o /sentrytunnel-$GOOS-$GOARCH -ldflags="-s -X main.Version=${DOCKER_META_VERSION}" cmd/sentrytunnel/sentrytunnel.go
+        go build -o /sentrytunnel-$GOOS-$GOARCH -ldflags="-s -X sentrytunnel.Version=${DOCKER_META_VERSION}" cmd/sentrytunnel/sentrytunnel.go
     done
 EOT
 
