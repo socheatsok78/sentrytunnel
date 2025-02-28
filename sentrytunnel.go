@@ -21,11 +21,8 @@ import (
 )
 
 var (
-	Name                  = "sentrytunnel"
-	Version               = "dev"
-	HttpHeaderServer      = Name + "/" + Version
-	HttpHeaderUserAgent   = Name + "/" + Version
-	HttpHeaderContentType = "application/x-sentry-envelope"
+	Name    = "sentrytunnel"
+	Version = "dev"
 )
 
 type SentryTunnel struct {
@@ -132,7 +129,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.SetHeader("Server", HttpHeaderServer))
+	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
 
 	// CORS
@@ -157,7 +154,7 @@ func action(_ context.Context, _ *cli.Command) error {
 
 			// Sending the payload to upstream
 			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
-			res, err := http.Post(dsn.GetAPIURL().String(), HttpHeaderContentType, payload.NewReader())
+			res, err := http.Post(dsn.GetAPIURL().String(), "application/x-sentry-envelope", payload.NewReader())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
