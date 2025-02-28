@@ -1,3 +1,6 @@
+PKG_ROOT := github.com/socheatsok78/sentrytunnel
+PKG_VERSION := dev
+
 it:
 	go mod tidy
 
@@ -10,7 +13,7 @@ debug:
 build: bin/sentrytunnel
 
 bin/sentrytunnel:
-	go build -o bin/sentrytunnel cmd/sentrytunnel/sentrytunnel.go
+	go build -ldflags="-s -X $(PKG_ROOT).Version=$(PKG_VERSION)" -o bin/sentrytunnel cmd/sentrytunnel/sentrytunnel.go
 
 clean:
 	rm -rf bin
