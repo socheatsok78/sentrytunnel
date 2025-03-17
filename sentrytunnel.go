@@ -161,7 +161,7 @@ func Run() error {
 }
 
 func action(_ context.Context, _ *cli.Command) error {
-  // Initialize run group
+	// Initialize run group
 	var g run.Group
 
 	// Initialize Sentry
@@ -265,7 +265,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Process the request
-
 		id := uuid.New().String()
 		level.Info(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
 
