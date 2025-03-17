@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -251,7 +252,8 @@ func action(_ context.Context, _ *cli.Command) error {
 	// Serve Sentry Tunnel
 	g.Add(func() error {
 		level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
-		return http.ListenAndServe(sentrytunnel.ListenAddress, r)
+		handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
+		return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
 	}, func(err error) {})
 
 	return g.Run()
