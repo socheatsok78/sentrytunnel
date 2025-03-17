@@ -212,10 +212,9 @@ func action(_ context.Context, _ *cli.Command) error {
 
 			// Respond to the client with the upstream's response
 			level.Info(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
-			if res.StatusCode != http.StatusOK {
-				http.Error(w, string(body), res.StatusCode)
-				return
-			}
+
+			// Set the response status code and body
+			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
 	})
