@@ -87,6 +87,8 @@ func Run() error {
 				Value:       "info",
 				Destination: &sentrytunnel.LoggingLevel,
 			},
+
+			// Tunnel monitoring
 			&cli.StringFlag{
 				Name:        "dsn",
 				Usage:       "The Sentry DSN for monitoring the tunnel",
@@ -102,6 +104,8 @@ func Run() error {
 				Value:       1.0,
 				Destination: &sentrytunnel.TracesSampleRate,
 			},
+
+			// CORS
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
