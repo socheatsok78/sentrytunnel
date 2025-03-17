@@ -223,7 +223,6 @@ func action(_ context.Context, _ *cli.Command) error {
 			res, err := http.Post(dsn.GetAPIURL().String(), "application/x-sentry-envelope", payload.NewReader())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				sentry.CaptureException(err)
 				return
 			}
 			defer res.Body.Close()
@@ -232,7 +231,6 @@ func action(_ context.Context, _ *cli.Command) error {
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				sentry.CaptureException(err)
 				return
 			}
 
