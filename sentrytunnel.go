@@ -87,6 +87,8 @@ func Run() error {
 				Value:       "info",
 				Destination: &sentrytunnel.LoggingLevel,
 			},
+
+			// Tunnel monitoring
 			&cli.StringFlag{
 				Name:        "dsn",
 				Usage:       "The Sentry DSN for monitoring the tunnel",
@@ -102,6 +104,8 @@ func Run() error {
 				Value:       1.0,
 				Destination: &sentrytunnel.TracesSampleRate,
 			},
+
+			// CORS
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
@@ -151,14 +155,12 @@ func Run() error {
 func action(_ context.Context, _ *cli.Command) error {
 	// Initialize Sentry
 	err := sentry.Init(sentry.ClientOptions{
-		Debug:   sentrytunnel.Debug,
-		Dsn:     sentrytunnel.DSN,
-		Release: Name + "@" + Version,
-		// Features
+		Debug:         sentrytunnel.Debug,
+		Dsn:           sentrytunnel.DSN,
+		Release:       Name + "@" + Version,
 		EnableTracing: true,
 		// Set TracesSampleRate to 1.0 to capture 100%
 		// of transactions for tracing.
-		// We recommend adjusting this value in production,
 		TracesSampleRate: sentrytunnel.TracesSampleRate,
 	})
 	if err != nil {
@@ -212,10 +214,9 @@ func action(_ context.Context, _ *cli.Command) error {
 
 			// Respond to the client with the upstream's response
 			level.Info(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
-			if res.StatusCode != http.StatusOK {
-				http.Error(w, string(body), res.StatusCode)
-				return
-			}
+
+			// Set the response status code and body
+			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
 	})
