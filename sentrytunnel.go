@@ -22,7 +22,6 @@ import (
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
-	"github.com/socheatsok78/sentrytunnel/sentrymiddleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -211,7 +210,6 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
-		r.Use(sentrymiddleware.Sentry(nil))
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			id := r.Context().Value(contextKeyID).(string)
@@ -271,6 +269,13 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Process the request
+		// Check if the request is a POST request
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Process the request
 		id := uuid.New().String()
 		level.Info(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
 
@@ -290,7 +295,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
-			sentry.CaptureException(err)
 			return
 		}
 
@@ -299,7 +303,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
-			sentry.CaptureException(err)
 			return
 		}
 
