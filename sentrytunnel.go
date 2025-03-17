@@ -198,13 +198,13 @@ func action(_ context.Context, _ *cli.Command) error {
 		})
 	})
 
-	// Serve our metrics.
+	// Serve metrics
 	g.Add(func() error {
 		level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
 		return http.ListenAndServe(sentrytunnel.MetricsAddress, promhttp.Handler())
 	}, func(err error) {})
 
-	// Start the server
+	// Serve Sentry Tunnel
 	g.Add(func() error {
 		level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
 		return http.ListenAndServe(sentrytunnel.ListenAddress, r)
