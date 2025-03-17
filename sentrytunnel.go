@@ -182,6 +182,9 @@ func action(_ context.Context, _ *cli.Command) error {
 		level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
 		return err
 	}
+	// Flush buffered events before the program terminates.
+	// Set the timeout to the maximum duration the program can afford to wait.
+	defer sentry.Flush(2 * time.Second)
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
