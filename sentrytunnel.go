@@ -33,7 +33,6 @@ var (
 type SentryTunnel struct {
 	ListenAddress            string
 	MetricsAddress           string
-	TunnelURLPath            string
 	LoggingLevel             string
 	AccessControlAllowOrigin []string
 	TrustedSentryDSN         []string
@@ -87,12 +86,6 @@ func Run() error {
 				Value:       ":9091",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_METRICS_ADDR"),
 				Destination: &sentrytunnel.MetricsAddress,
-			},
-			&cli.StringFlag{
-				Name:        "tunnel-path",
-				Usage:       "The URL path for the tunnel to process the requests",
-				Value:       "/tunnel",
-				Destination: &sentrytunnel.TunnelURLPath,
 			},
 			&cli.StringFlag{
 				Name:        "log-level",
@@ -215,7 +208,7 @@ func action(_ context.Context, _ *cli.Command) error {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	// Configure tunnel route
-	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
+	r.Route("/tunnel", func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			id := r.Context().Value(contextKeyID).(string)
