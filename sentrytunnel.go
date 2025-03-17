@@ -10,13 +10,17 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
+	"github.com/oklog/run"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
+	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
 	"github.com/urfave/cli/v3"
 )
@@ -28,6 +32,7 @@ var (
 
 type SentryTunnel struct {
 	ListenAddress            string
+	MetricsAddress           string
 	TunnelURLPath            string
 	LoggingLevel             string
 	AccessControlAllowOrigin []string
@@ -74,6 +79,12 @@ func Run() error {
 				Usage:       "The address to listen on",
 				Value:       ":8080",
 				Destination: &sentrytunnel.ListenAddress,
+			},
+			&cli.StringFlag{
+				Name:        "metrics-addr",
+				Usage:       "The address to listen on",
+				Value:       ":9091",
+				Destination: &sentrytunnel.MetricsAddress,
 			},
 			&cli.StringFlag{
 				Name:        "tunnel-path",
@@ -153,6 +164,9 @@ func Run() error {
 }
 
 func action(_ context.Context, _ *cli.Command) error {
+	// Initialize run group
+	var g run.Group
+
 	// Initialize Sentry
 	err := sentry.Init(sentry.ClientOptions{
 		Debug:         sentrytunnel.Debug,
@@ -181,6 +195,12 @@ func action(_ context.Context, _ *cli.Command) error {
 	// CORS
 	r.Use(cors.Handler((cors.Options{
 		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
+	})))
+
+	// Metrics
+	r.Use(std.HandlerProvider("", metricsMiddleware.New(metricsMiddleware.Config{
+		Service:  Name,
+		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})))
 
 	// Set a timeout value on the request context (ctx), that will signal
@@ -223,14 +243,30 @@ func action(_ context.Context, _ *cli.Command) error {
 		})
 	})
 
-	// Start the server
-	level.Info(logger).Log("msg", fmt.Sprintf("the server is listening on %s", sentrytunnel.ListenAddress))
-	handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
-	return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
+	// Serve metrics
+	g.Add(func() error {
+		level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
+		return http.ListenAndServe(sentrytunnel.MetricsAddress, promhttp.Handler())
+	}, func(err error) {})
+
+	// Serve Sentry Tunnel
+	g.Add(func() error {
+		level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
+		return http.ListenAndServe(sentrytunnel.ListenAddress, r)
+	}, func(err error) {})
+
+	return g.Run()
 }
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if the request is a POST request
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Process the request
 		// Check if the request is a POST request
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
