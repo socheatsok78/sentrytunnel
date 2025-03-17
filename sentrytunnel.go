@@ -250,7 +250,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
-			sentry.CaptureException(err)
 			return
 		}
 
@@ -259,7 +258,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
-			sentry.CaptureException(err)
 			return
 		}
 
