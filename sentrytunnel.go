@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -17,7 +18,6 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
 	"github.com/socheatsok78/sentrytunnel/envelope"
-	"github.com/socheatsok78/sentrytunnel/sentrymiddleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -190,7 +190,6 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
-		r.Use(sentrymiddleware.Sentry(nil))
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			id := r.Context().Value(contextKeyID).(string)
@@ -226,7 +225,8 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Start the server
 	level.Info(logger).Log("msg", fmt.Sprintf("the server is listening on %s", sentrytunnel.ListenAddress))
-	return http.ListenAndServe(sentrytunnel.ListenAddress, r)
+	handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
+	return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
 }
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
