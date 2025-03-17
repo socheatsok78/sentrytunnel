@@ -166,14 +166,12 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Initialize Sentry
 	err := sentry.Init(sentry.ClientOptions{
-		Debug:   sentrytunnel.Debug,
-		Dsn:     sentrytunnel.DSN,
-		Release: Name + "@" + Version,
-		// Features
+		Debug:         sentrytunnel.Debug,
+		Dsn:           sentrytunnel.DSN,
+		Release:       Name + "@" + Version,
 		EnableTracing: true,
 		// Set TracesSampleRate to 1.0 to capture 100%
 		// of transactions for tracing.
-		// We recommend adjusting this value in production,
 		TracesSampleRate: sentrytunnel.TracesSampleRate,
 	})
 	if err != nil {
