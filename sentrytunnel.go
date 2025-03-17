@@ -78,12 +78,14 @@ func Run() error {
 				Name:        "listen-addr",
 				Usage:       "The address to listen on",
 				Value:       ":8080",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_LISTEN_ADDR"),
 				Destination: &sentrytunnel.ListenAddress,
 			},
 			&cli.StringFlag{
 				Name:        "metrics-addr",
 				Usage:       "The address to listen on",
 				Value:       ":9091",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_METRICS_ADDR"),
 				Destination: &sentrytunnel.MetricsAddress,
 			},
 			&cli.StringFlag{
@@ -96,6 +98,7 @@ func Run() error {
 				Name:        "log-level",
 				Usage:       "Set the log level",
 				Value:       "info",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_LOG_LEVEL"),
 				Destination: &sentrytunnel.LoggingLevel,
 			},
 
@@ -103,6 +106,7 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "dsn",
 				Usage:       "The Sentry DSN for monitoring the tunnel",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_DSN"),
 				Destination: &sentrytunnel.DSN,
 				Validator: func(s string) error {
 					_, err := sentry.NewDsn(s)
@@ -112,6 +116,7 @@ func Run() error {
 			&cli.FloatFlag{
 				Name:        "trace-sample-rate",
 				Usage:       "The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0]",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_TRACE_SAMPLE_RATE"),
 				Value:       1.0,
 				Destination: &sentrytunnel.TracesSampleRate,
 			},
@@ -120,6 +125,7 @@ func Run() error {
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_ALLOWED_ORIGIN"),
 				Destination: &sentrytunnel.AccessControlAllowOrigin,
 				Validator: func(s []string) error {
 					for _, origin := range s {
