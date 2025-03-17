@@ -22,6 +22,7 @@ import (
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
+	"github.com/socheatsok78/sentrytunnel/sentrymiddleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -37,6 +38,11 @@ type SentryTunnel struct {
 	LoggingLevel             string
 	AccessControlAllowOrigin []string
 	TrustedSentryDSN         []string
+
+	// Tunnel monitoring
+	Debug            bool
+	DSN              string
+	TracesSampleRate float64
 }
 
 // SentryTunnel
@@ -53,12 +59,13 @@ const (
 	contextKeyPayload contextKey = "payload"
 )
 
+// Setup logger
 func init() {
-	// Setup logger
 	logger = log.NewLogfmtLogger(os.Stdout)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 }
 
+// Run the main application
 func Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -92,6 +99,21 @@ func Run() error {
 				Value:       "info",
 				Destination: &sentrytunnel.LoggingLevel,
 			},
+			&cli.StringFlag{
+				Name:        "dsn",
+				Usage:       "The Sentry DSN for monitoring the tunnel",
+				Destination: &sentrytunnel.DSN,
+				Validator: func(s string) error {
+					_, err := sentry.NewDsn(s)
+					return err
+				},
+			},
+			&cli.FloatFlag{
+				Name:        "trace-sample-rate",
+				Usage:       "The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0]",
+				Value:       1.0,
+				Destination: &sentrytunnel.TracesSampleRate,
+			},
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
 				Usage:       "A list of origins that are allowed to access the tunnel. e.g. https://example.com",
@@ -116,6 +138,7 @@ func Run() error {
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			switch c.String("log-level") {
 			case "debug":
+				sentrytunnel.Debug = true
 				logger = level.NewFilter(logger, level.AllowDebug())
 			case "info":
 				logger = level.NewFilter(logger, level.AllowInfo())
@@ -138,8 +161,27 @@ func Run() error {
 }
 
 func action(_ context.Context, _ *cli.Command) error {
+  // Initialize run group
 	var g run.Group
 
+	// Initialize Sentry
+	err := sentry.Init(sentry.ClientOptions{
+		Debug:   sentrytunnel.Debug,
+		Dsn:     sentrytunnel.DSN,
+		Release: Name + "@" + Version,
+		// Features
+		EnableTracing: true,
+		// Set TracesSampleRate to 1.0 to capture 100%
+		// of transactions for tracing.
+		// We recommend adjusting this value in production,
+		TracesSampleRate: sentrytunnel.TracesSampleRate,
+	})
+	if err != nil {
+		level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
+		return err
+	}
+
+	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -164,6 +206,7 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelURLPath, func(r chi.Router) {
+		r.Use(sentrymiddleware.Sentry(nil))
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			id := r.Context().Value(contextKeyID).(string)
@@ -242,6 +285,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
+			sentry.CaptureException(err)
 			return
 		}
 
@@ -250,6 +294,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
+			sentry.CaptureException(err)
 			return
 		}
 
