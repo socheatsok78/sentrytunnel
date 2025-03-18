@@ -191,9 +191,11 @@ func action(_ context.Context, c *cli.Command) error {
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
 
+	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "none" {
-		// r.Use(middleware.Logger)
-		r.Use(smiddleware.RequestLogger(logger))
+		r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
+			Logger: logger,
+		}))
 	}
 
 	r.Use(middleware.Recoverer)
@@ -220,14 +222,14 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Route("/tunnel", func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			id := r.Context().Value(contextKeyID).(string)
+			id := middleware.GetReqID(r.Context())
 
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
 			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
 			// Sending the payload to upstream
-			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
+			level.Debug(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
 			res, err := http.Post(dsn.GetAPIURL().String(), "application/x-sentry-envelope", payload.NewReader())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -243,7 +245,7 @@ func action(_ context.Context, c *cli.Command) error {
 			}
 
 			// Respond to the client with the upstream's response
-			level.Info(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
+			level.Debug(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
 
 			// Set the response status code and body
 			w.WriteHeader(res.StatusCode)
@@ -295,9 +297,9 @@ func action(_ context.Context, c *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := middleware.GetReqID(r.Context())
-		if reqID == "" {
-			reqID = uuid.New().String()
+		id := middleware.GetReqID(r.Context())
+		if id == "" {
+			id = uuid.New().String()
 		}
 
 		// Check if the request is a POST request
@@ -314,16 +316,16 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Process the request
-		level.Info(logger).Log("id", reqID, "msg", "received request", "method", r.Method, "url", r.URL.String())
+		level.Debug(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
 
 		// Set the tunnel ID to the response header
-		w.Header().Set("X-Sentry-Tunnel-ID", reqID)
+		w.Header().Set("X-Sentry-Tunnel-ID", id)
 
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", reqID, "msg", "error reading request body", "err", err)
+			level.Error(logger).Log("id", id, "msg", "error reading request body", "err", err)
 			return
 		}
 
@@ -331,7 +333,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", reqID, "msg", "error parsing envelope", "err", err)
+			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
 			return
 		}
 
@@ -339,13 +341,13 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", reqID, "msg", "error parsing Sentry DSN", "err", err)
+			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
 			return
 		}
 
 		// Set the DSN and payload to the context
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, contextKeyID, reqID)
+		ctx = context.WithValue(ctx, contextKeyID, id)
 		ctx = context.WithValue(ctx, contextKeyDSN, dsn)
 		ctx = context.WithValue(ctx, contextKeyPayload, payload)
 
