@@ -3,10 +3,12 @@ package sentrytunnel
 import (
 	"context"
 	"fmt"
-	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -201,20 +203,42 @@ func action(_ context.Context, _ *cli.Command) error {
 	// Configure tunnel route
 	r.Route("/tunnel", SentryTunnelRoutes)
 
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	g.Add(func() error {
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+		level.Info(logger).Log("msg", fmt.Sprintf("received signal %s", s))
+		return nil
+	}, func(err error) {
+		level.Info(logger).Log("msg", "shutting down", "err", err)
+		close(quit)
 	})
 
 	// Serve metrics
-	g.Add(func() error {
-		level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
-		return http.ListenAndServe(sentrytunnel.MetricsAddress, promhttp.Handler())
-	}, func(err error) {})
+	{
+		ln, _ := net.Listen("tcp", sentrytunnel.MetricsAddress)
+		g.Add(func() error {
+			level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
+			// return http.ListenAndServe(sentrytunnel.MetricsAddress, promhttp.Handler())
+			return http.Serve(ln, promhttp.Handler())
+		}, func(err error) {
+			ln.Close()
+		})
+	}
 
 	// Serve Sentry Tunnel
-	g.Add(func() error {
-		level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
-		handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
-		return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
-	}, func(err error) {})
+	{
+		ln, _ := net.Listen("tcp", sentrytunnel.ListenAddress)
+		g.Add(func() error {
+			level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
+			handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
+			// return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
+			return http.Serve(ln, handler)
+		}, func(err error) {
+			ln.Close()
+		})
+	}
 
 	return g.Run()
 }
