@@ -94,7 +94,7 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "log-level",
 				Usage:       "Set the log level",
-				Value:       "info",
+				Value:       "none",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LOG_LEVEL"),
 				Destination: &sentrytunnel.LoggingLevel,
 			},
@@ -152,6 +152,8 @@ func Run() error {
 				logger = level.NewFilter(logger, level.AllowWarn())
 			case "error":
 				logger = level.NewFilter(logger, level.AllowError())
+			case "none":
+				logger = level.NewFilter(logger, level.AllowNone())
 			default:
 				logger = level.NewFilter(logger, level.AllowNone())
 			}
