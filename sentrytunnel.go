@@ -193,9 +193,10 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "none" {
-		r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
-			Logger: logger,
-		}))
+		r.Use(middleware.Logger)
+		// r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
+		// 	Logger: logger,
+		// }))
 	}
 
 	r.Use(middleware.Recoverer)
