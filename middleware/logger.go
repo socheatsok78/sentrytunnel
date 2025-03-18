@@ -30,7 +30,7 @@ func (l StructuredFormatter) NewLogEntry(r *http.Request) middleware.LogEntry {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	entry.entries = append(entry.entries, "request", fmt.Sprintf("%s %s://%s%s %s", r.Method, scheme, r.Host, r.RequestURI, r.Proto))
+	entry.entries = append(entry.entries, "msg", fmt.Sprintf("%s %s://%s%s %s", r.Method, scheme, r.Host, r.RequestURI, r.Proto))
 	entry.entries = append(entry.entries, "from", r.RemoteAddr)
 
 	return entry
