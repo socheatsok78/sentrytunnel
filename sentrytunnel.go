@@ -168,7 +168,7 @@ func Run() error {
 	return cmd.Run(ctx, os.Args)
 }
 
-func action(_ context.Context, _ *cli.Command) error {
+func action(_ context.Context, c *cli.Command) error {
 	// Initialize run group
 	var g run.Group
 
@@ -189,7 +189,11 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+
+	if c.String("log-level") != "none" {
+		r.Use(middleware.Logger)
+	}
+
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
