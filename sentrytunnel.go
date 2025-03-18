@@ -19,13 +19,13 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/google/uuid"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
+	smiddleware "github.com/socheatsok78/sentrytunnel/middleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -189,9 +189,14 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
+	r.Use(smiddleware.RequestID)
 
+	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "none" {
 		r.Use(middleware.Logger)
+		// r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
+		// 	Logger: logger,
+		// }))
 	}
 
 	r.Use(middleware.Recoverer)
@@ -218,32 +223,24 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Route("/tunnel", func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			id := r.Context().Value(contextKeyID).(string)
-
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
 			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
 			// Sending the payload to upstream
-			level.Info(logger).Log("id", id, "msg", "sending envelope to sentry endpoint", "dsn", dsn.GetAPIURL().String())
 			res, err := http.Post(dsn.GetAPIURL().String(), "application/x-sentry-envelope", payload.NewReader())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			defer res.Body.Close()
-
-			// Read the response body
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			// Respond to the client with the upstream's response
-			level.Info(logger).Log("id", id, "msg", "received response from sentry", "dsn", dsn.GetAPIURL().String(), "status", res.StatusCode)
-
-			// Set the response status code and body
+			// Proxy the response from upstream back to the client
 			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
@@ -293,25 +290,25 @@ func action(_ context.Context, c *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check if the request is a POST request
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Process the request
-		// Check if the request is a POST request
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Process the request
-		id := uuid.New().String()
-		level.Info(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
+		id := middleware.GetReqID(r.Context())
 
 		// Set the tunnel ID to the response header
-		w.Header().Set("X-Sentry-Tunnel-ID", id)
+		if id != "" {
+			w.Header().Set("X-Sentry-Tunnel-ID", id)
+		}
+
+		// Check if the request is a POST request
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Process the request
+		// Check if the request is a POST request
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
 
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
