@@ -26,6 +26,7 @@ import (
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
+	smiddleware "github.com/socheatsok78/sentrytunnel/middleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -189,7 +190,8 @@ func action(_ context.Context, _ *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	// r.Use(middleware.Logger)
+	r.Use(smiddleware.RequestLogger(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
@@ -289,6 +291,11 @@ func action(_ context.Context, _ *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqID := middleware.GetReqID(r.Context())
+		if reqID == "" {
+			reqID = uuid.New().String()
+		}
+
 		// Check if the request is a POST request
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -303,17 +310,16 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Process the request
-		id := uuid.New().String()
-		level.Info(logger).Log("id", id, "msg", "received request", "method", r.Method, "url", r.URL.String())
+		level.Info(logger).Log("id", reqID, "msg", "received request", "method", r.Method, "url", r.URL.String())
 
 		// Set the tunnel ID to the response header
-		w.Header().Set("X-Sentry-Tunnel-ID", id)
+		w.Header().Set("X-Sentry-Tunnel-ID", reqID)
 
 		// Read the envelope from the request body
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error reading request body", "err", err)
+			level.Error(logger).Log("id", reqID, "msg", "error reading request body", "err", err)
 			return
 		}
 
@@ -321,7 +327,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
+			level.Error(logger).Log("id", reqID, "msg", "error parsing envelope", "err", err)
 			return
 		}
 
@@ -329,13 +335,13 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
+			level.Error(logger).Log("id", reqID, "msg", "error parsing Sentry DSN", "err", err)
 			return
 		}
 
 		// Set the DSN and payload to the context
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, contextKeyID, id)
+		ctx = context.WithValue(ctx, contextKeyID, reqID)
 		ctx = context.WithValue(ctx, contextKeyDSN, dsn)
 		ctx = context.WithValue(ctx, contextKeyPayload, payload)
 
