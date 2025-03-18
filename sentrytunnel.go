@@ -260,7 +260,6 @@ func action(_ context.Context, _ *cli.Command) error {
 		ln, _ := net.Listen("tcp", sentrytunnel.MetricsAddress)
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
-			// return http.ListenAndServe(sentrytunnel.MetricsAddress, promhttp.Handler())
 			return http.Serve(ln, promhttp.Handler())
 		}, func(err error) {
 			ln.Close()
@@ -273,7 +272,6 @@ func action(_ context.Context, _ *cli.Command) error {
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
 			handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
-			// return http.ListenAndServe(sentrytunnel.ListenAddress, handler)
 			return http.Serve(ln, handler)
 		}, func(err error) {
 			ln.Close()
