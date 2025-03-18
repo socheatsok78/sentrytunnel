@@ -190,6 +190,7 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
+	r.Use(smiddleware.RequestID)
 
 	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "none" {
