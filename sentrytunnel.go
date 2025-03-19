@@ -249,11 +249,6 @@ func action(_ context.Context, c *cli.Command) error {
 		})
 	})
 
-	r.Get("/panic", func(w http.ResponseWriter, r *http.Request) {
-		var s []int
-		fmt.Fprint(w, s[42]) // this line will panic
-	})
-
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	g.Add(func() error {
