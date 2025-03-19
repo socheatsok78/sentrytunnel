@@ -22,3 +22,16 @@ func RequestID(next http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(fn)
 }
+
+// RequestIDHeader is a middleware that injects a request ID into the response
+// header of each request.
+func RequestIDHeader(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		requestID := chimiddleware.GetReqID(r.Context())
+		if requestID != "" {
+			w.Header().Set("X-Request-ID", requestID)
+		}
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}

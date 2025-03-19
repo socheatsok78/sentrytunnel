@@ -189,6 +189,7 @@ func action(_ context.Context, c *cli.Command) error {
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
 	r.Use(smiddleware.RequestID)
+	r.Use(smiddleware.RequestIDHeader)
 
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
@@ -292,13 +293,6 @@ func action(_ context.Context, c *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := middleware.GetReqID(r.Context())
-
-		// Set the tunnel ID to the response header
-		if id != "" {
-			w.Header().Set("X-Sentry-Tunnel-ID", id)
-		}
-
 		// Check if the request is a POST request
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -335,7 +329,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 
 		// Set the DSN and payload to the context
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, contextKeyID, id)
 		ctx = context.WithValue(ctx, contextKeyDSN, dsn)
 		ctx = context.WithValue(ctx, contextKeyPayload, payload)
 
