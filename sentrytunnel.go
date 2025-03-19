@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -221,6 +220,7 @@ func action(_ context.Context, c *cli.Command) error {
 	// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
 	// and returns a HTTP 500 (Internal Server Error) status if possible.
 	r.Use(middleware.Recoverer)
+	r.Use(smiddleware.SentryRecoverer)
 
 	// Configure tunnel route
 	r.Route("/tunnel", func(r chi.Router) {
@@ -247,6 +247,11 @@ func action(_ context.Context, c *cli.Command) error {
 			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
+	})
+
+	r.Get("/panic", func(w http.ResponseWriter, r *http.Request) {
+		var s []int
+		fmt.Fprint(w, s[42]) // this line will panic
 	})
 
 	// Wait for interrupt signal to gracefully shutdown the server
@@ -277,8 +282,7 @@ func action(_ context.Context, c *cli.Command) error {
 		ln, _ := net.Listen("tcp", sentrytunnel.ListenAddress)
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
-			handler := sentryhttp.New(sentryhttp.Options{}).Handle(r)
-			return http.Serve(ln, handler)
+			return http.Serve(ln, r)
 		}, func(err error) {
 			ln.Close()
 
