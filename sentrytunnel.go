@@ -191,15 +191,6 @@ func action(_ context.Context, c *cli.Command) error {
 	r := chi.NewRouter()
 	r.Use(smiddleware.RequestID)
 
-	// Enable logging middleware if the log level is not set to none
-	if c.String("log-level") != "none" {
-		r.Use(middleware.Logger)
-		// r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
-		// 	Logger: logger,
-		// }))
-	}
-
-	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
 
@@ -218,6 +209,18 @@ func action(_ context.Context, c *cli.Command) error {
 	// through ctx.Done() that the request has timed out and further
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
+
+	// Enable logging middleware if the log level is not set to none
+	if c.String("log-level") != "none" {
+		r.Use(middleware.Logger)
+		// r.Use(middleware.RequestLogger(smiddleware.StructuredFormatter{
+		// 	Logger: logger,
+		// }))
+	}
+
+	// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
+	// and returns a HTTP 500 (Internal Server Error) status if possible.
+	r.Use(middleware.Recoverer)
 
 	// Configure tunnel route
 	r.Route("/tunnel", func(r chi.Router) {
