@@ -316,7 +316,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error reading request body", "err", err)
 			return
 		}
 
@@ -324,7 +323,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error parsing envelope", "err", err)
 			return
 		}
 
@@ -332,7 +330,6 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			level.Error(logger).Log("id", id, "msg", "error parsing Sentry DSN", "err", err)
 			return
 		}
 
