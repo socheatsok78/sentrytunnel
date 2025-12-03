@@ -172,18 +172,20 @@ func action(_ context.Context, c *cli.Command) error {
 	var g run.Group
 
 	// Initialize Sentry
-	err := sentry.Init(sentry.ClientOptions{
-		Debug:         sentrytunnel.Debug,
-		Dsn:           sentrytunnel.DSN,
-		Release:       Name + "@" + Version,
-		EnableTracing: true,
-		// Set TracesSampleRate to 1.0 to capture 100%
-		// of transactions for tracing.
-		TracesSampleRate: sentrytunnel.TracesSampleRate,
-	})
-	if err != nil {
-		level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
-		return err
+	if sentrytunnel.DSN != "" {
+		err := sentry.Init(sentry.ClientOptions{
+			Debug:         sentrytunnel.Debug,
+			Dsn:           sentrytunnel.DSN,
+			Release:       Name + "@" + Version,
+			EnableTracing: true,
+			// Set TracesSampleRate to 1.0 to capture 100%
+			// of transactions for tracing.
+			TracesSampleRate: sentrytunnel.TracesSampleRate,
+		})
+		if err != nil {
+			level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
+			return err
+		}
 	}
 
 	// Initialize HTTP server with Chi
