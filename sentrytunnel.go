@@ -93,7 +93,7 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "log-level",
 				Usage:       "Set the log level",
-				Value:       "none",
+				Value:       "info",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LOG_LEVEL"),
 				Destination: &sentrytunnel.LoggingLevel,
 			},
