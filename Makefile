@@ -5,7 +5,7 @@ it:
 	go mod tidy
 
 run:
-	go run cmd/sentrytunnel/sentrytunnel.go
+	go run cmd/sentrytunnel/sentrytunnel.go --log-level=debug
 
 debug:
 	go run cmd/sentrytunnel/sentrytunnel.go --log-level=debug
