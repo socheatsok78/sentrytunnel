@@ -293,12 +293,6 @@ func action(_ context.Context, c *cli.Command) error {
 
 func SentryTunnelCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check if the request is a POST request
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
 		// Process the request
 		// Check if the request is a POST request
 		if r.Method != http.MethodPost {
