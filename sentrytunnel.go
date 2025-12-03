@@ -102,6 +102,7 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "dsn",
 				Usage:       "The Sentry DSN for monitoring the tunnel",
+				Required:    true,
 				Sources:     cli.EnvVars("SENTRYTUNNEL_DSN"),
 				Destination: &sentrytunnel.DSN,
 				Validator: func(s string) error {
