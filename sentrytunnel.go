@@ -96,11 +96,10 @@ func Run() error {
 				Destination: &sentrytunnel.ListenAddress,
 			},
 			&cli.StringSliceFlag{
-				Name:        "trusted-proxy",
-				Category:    "Tunnel server:",
-				Usage:       "A list of trusted proxy IPs or CIDRs to extract the client IP from X-Forwarded-For header.",
-				DefaultText: "127.0.0.1",
-				Sources:     cli.EnvVars("SENTRYTUNNEL_TRUSTED_PROXY"),
+				Name:     "trusted-proxy",
+				Category: "Tunnel server:",
+				Usage:    "A list of trusted proxy IPs or CIDRs to extract the client IP from X-Forwarded-For header.",
+				Sources:  cli.EnvVars("SENTRYTUNNEL_TRUSTED_PROXY"),
 				Action: func(ctx context.Context, c *cli.Command, s []string) error {
 					var trustedProxies []*net.IPNet
 					for _, cidr := range s {
@@ -247,8 +246,9 @@ func action(_ context.Context, c *cli.Command) error {
 	})))
 	r.Use(proxy.ForwardedHeaders(
 		&proxy.ForwardedHeadersOptions{
-			ForwardLimit:    0,
-			TrustedNetworks: sentrytunnel.TrustedProxies,
+			ForwardLimit:       0,
+			TrustingAllProxies: len(sentrytunnel.TrustedProxies) == 0,
+			TrustedNetworks:    sentrytunnel.TrustedProxies,
 		},
 	))
 
