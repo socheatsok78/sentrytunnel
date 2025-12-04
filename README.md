@@ -30,21 +30,30 @@ Once configured, all events will be sent to the /tunnel endpoint. This solution,
 
 ```
 NAME:
-   sentry-tunnel - A tunneling service for Sentry
+   sentrytunnel - A tunneling service for Sentry
 
 USAGE:
-   sentry-tunnel [global options]
+   sentrytunnel [global options]
 
 VERSION:
    dev
 
 GLOBAL OPTIONS:
-   --listen-addr value                                        The address to listen on (default: ":8080")
-   --log-level value                                          Set the log level (default: "info")
-   --allowed-origin value [ --allowed-origin value ]          A list of origins that are allowed to access the tunnel. e.g. https://example.com
-   --trusted-sentry-dsn value [ --trusted-sentry-dsn value ]  A list of Sentry DSNs that are trusted by the tunnel, must NOT contain the public/secret keys. e.g. "https://sentry.example.com/1"
-   --help, -h                                                 show help
-   --version, -v                                              print the version
+   --help, -h          show help
+   --log-level string  Set the log level (default: "info") [$SENTRYTUNNEL_LOG_LEVEL]
+   --version, -v       print the version
+
+   Tunnel metrics:
+
+   --dsn string               The Sentry DSN for monitoring the tunnel [$SENTRYTUNNEL_DSN]
+   --metrics-addr string      The address to listen on (default: ":9091") [$SENTRYTUNNEL_METRICS_ADDR]
+   --trace-sample-rate float  The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0] (default: 1) [$SENTRYTUNNEL_TRACE_SAMPLE_RATE]
+
+   Tunnel server:
+
+   --allowed-origin string [ --allowed-origin string ]  A list of origins that are allowed to access the tunnel. e.g. https://example.com [$SENTRYTUNNEL_ALLOWED_ORIGIN]
+   --listen-addr string                                 The address to listen on (default: ":8080") [$SENTRYTUNNEL_LISTEN_ADDR]
+   --trusted-proxy string [ --trusted-proxy string ]    A list of trusted proxy IPs or CIDRs to extract the client IP from X-Forwarded-For header. [$SENTRYTUNNEL_TRUSTED_PROXY]
 ```
 
 ## Metrics
