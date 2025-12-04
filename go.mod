@@ -3,6 +3,7 @@ module github.com/socheatsok78/sentrytunnel
 go 1.23.0
 
 require (
+	github.com/chi-middleware/proxy v1.1.1
 	github.com/getsentry/sentry-go v0.31.1
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/cors v1.2.1

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chi-middleware/proxy"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -39,6 +40,7 @@ type SentryTunnel struct {
 	LoggingLevel             string
 	AccessControlAllowOrigin []string
 	TrustedSentryDSN         []string
+	TrustedProxies           []*net.IPNet
 
 	// Tunnel monitoring
 	Debug            bool
@@ -93,6 +95,38 @@ func Run() error {
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LISTEN_ADDR"),
 				Destination: &sentrytunnel.ListenAddress,
 			},
+			&cli.StringSliceFlag{
+				Name:        "trusted-proxy",
+				Category:    "Tunnel server:",
+				Usage:       "A list of trusted proxy IPs or CIDRs to extract the client IP from X-Forwarded-For header.",
+				DefaultText: "127.0.0.1",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_TRUSTED_PROXY"),
+				Action: func(ctx context.Context, c *cli.Command, s []string) error {
+					var trustedProxies []*net.IPNet
+					for _, cidr := range s {
+						_, ipnet, err := net.ParseCIDR(cidr)
+						if err != nil {
+							// Try to parse as IP address
+							ip := net.ParseIP(cidr)
+							if ip == nil {
+								return fmt.Errorf("invalid trusted proxy CIDR or IP: %s", cidr)
+							}
+							var mask net.IPMask
+							if ip.To4() != nil {
+								mask = net.CIDRMask(32, 32)
+							} else {
+								mask = net.CIDRMask(128, 128)
+							}
+							ipnet = &net.IPNet{
+								IP:   ip,
+								Mask: mask,
+							}
+						}
+						trustedProxies = append(trustedProxies, ipnet)
+					}
+					sentrytunnel.TrustedProxies = trustedProxies
+					return nil
+				},
 			},
 			&cli.StringSliceFlag{
 				Name:        "allowed-origin",
@@ -198,6 +232,13 @@ func action(_ context.Context, c *cli.Command) error {
 	r := chi.NewRouter()
 	r.Use(smiddleware.RequestID)
 	r.Use(smiddleware.RequestIDHeader)
+
+	r.Use(proxy.ForwardedHeaders(
+		&proxy.ForwardedHeadersOptions{
+			ForwardLimit:    0,
+			TrustedNetworks: sentrytunnel.TrustedProxies,
+		},
+	))
 
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
