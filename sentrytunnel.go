@@ -215,9 +215,13 @@ func action(_ context.Context, c *cli.Command) error {
 			Dsn:           sentrytunnel.DSN,
 			Release:       Name + "@" + Version,
 			EnableTracing: true,
-			// Set TracesSampleRate to 1.0 to capture 100%
-			// of transactions for tracing.
-			TracesSampleRate: sentrytunnel.TracesSampleRate,
+			TracesSampler: sentry.TracesSampler(func(ctx sentry.SamplingContext) float64 {
+				// Sample only non-heartbeat transactions
+				if ctx.Span.Name == "GET /heartbeat" {
+					return 0.0
+				}
+				return sentrytunnel.TracesSampleRate
+			}),
 		})
 		if err != nil {
 			level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
