@@ -280,8 +280,15 @@ func action(_ context.Context, c *cli.Command) error {
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
 			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
+			// Prepare the request to upstream Sentry
+			req, _ := http.NewRequest("POST", dsn.GetAPIURL().String(), payload.NewReader())
+			req.Header.Set("Content-Type", "application/x-sentry-envelope")
+
+			// Set the X-Sentry-Forwarded-For header for preserving client IP
+			req.Header.Set("X-Sentry-Forwarded-For", r.RemoteAddr)
+
 			// Sending the payload to upstream
-			res, err := http.Post(dsn.GetAPIURL().String(), "application/x-sentry-envelope", payload.NewReader())
+			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
