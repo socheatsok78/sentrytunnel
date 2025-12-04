@@ -210,10 +210,11 @@ func action(_ context.Context, c *cli.Command) error {
 	// Initialize Sentry
 	if sentrytunnel.DSN != "" {
 		err := sentry.Init(sentry.ClientOptions{
-			Debug:         sentrytunnel.Debug,
-			Dsn:           sentrytunnel.DSN,
-			Release:       Name + "@" + Version,
-			EnableTracing: true,
+			Debug:          sentrytunnel.Debug,
+			Dsn:            sentrytunnel.DSN,
+			Release:        Name + "@" + Version,
+			SendDefaultPII: true,
+			EnableTracing:  true,
 			TracesSampler: sentry.TracesSampler(func(ctx sentry.SamplingContext) float64 {
 				// Sample only non-heartbeat transactions
 				if ctx.Span.Name == "GET /heartbeat" {
