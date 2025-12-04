@@ -289,7 +289,7 @@ func action(_ context.Context, c *cli.Command) error {
 			req.Header.Set("Content-Type", "application/x-sentry-envelope")
 
 			// Set the X-Sentry-Forwarded-For header for preserving client IP
-			req.Header.Set("X-Sentry-Forwarded-For", r.RemoteAddr)
+			req.Header.Set("X-Sentry-Forwarded-For", clientIP(r.RemoteAddr))
 
 			// Sending the payload to upstream
 			res, err := http.DefaultClient.Do(req)
@@ -389,4 +389,12 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		// Call the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func clientIP(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
