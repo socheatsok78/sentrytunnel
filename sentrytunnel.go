@@ -233,20 +233,19 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Use(smiddleware.RequestID)
 	r.Use(smiddleware.RequestIDHeader)
 
+	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
+	r.Use(middleware.Heartbeat("/heartbeat"))
+
+	// CORS and Trusted Proxies
+	r.Use(cors.Handler((cors.Options{
+		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
+	})))
 	r.Use(proxy.ForwardedHeaders(
 		&proxy.ForwardedHeadersOptions{
 			ForwardLimit:    0,
 			TrustedNetworks: sentrytunnel.TrustedProxies,
 		},
 	))
-
-	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
-	r.Use(middleware.Heartbeat("/heartbeat"))
-
-	// CORS
-	r.Use(cors.Handler((cors.Options{
-		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
-	})))
 
 	// Metrics
 	r.Use(std.HandlerProvider("", metricsMiddleware.New(metricsMiddleware.Config{
