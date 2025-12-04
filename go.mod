@@ -3,6 +3,7 @@ module github.com/socheatsok78/sentrytunnel
 go 1.23.0
 
 require (
+	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/chi-middleware/proxy v1.1.1
 	github.com/getsentry/sentry-go v0.31.1
 	github.com/go-chi/chi/v5 v5.2.1
@@ -13,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/urfave/cli/v3 v3.0.0-beta1
+	go.uber.org/automaxprocs v1.6.0
 )
 
 require (
@@ -21,6 +23,7 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
