@@ -25,7 +25,8 @@ import (
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"github.com/socheatsok78/sentrytunnel/envelope"
-	smiddleware "github.com/socheatsok78/sentrytunnel/middleware"
+	internalMetrics "github.com/socheatsok78/sentrytunnel/metrics"
+	internalMiddleware "github.com/socheatsok78/sentrytunnel/middleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -250,8 +251,8 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
-	r.Use(smiddleware.RequestID)
-	r.Use(smiddleware.RequestIDHeader)
+	r.Use(internalMiddleware.RequestID)
+	r.Use(internalMiddleware.RequestIDHeader)
 
 	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(middleware.Heartbeat("/heartbeat"))
@@ -287,7 +288,7 @@ func action(_ context.Context, c *cli.Command) error {
 	// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
 	// and returns a HTTP 500 (Internal Server Error) status if possible.
 	r.Use(middleware.Recoverer)
-	r.Use(smiddleware.SentryRecoverer)
+	r.Use(internalMiddleware.SentryRecoverer)
 
 	// Configure tunnel route
 	tunnelPath := c.String("tunnel-path")
@@ -309,16 +310,19 @@ func action(_ context.Context, c *cli.Command) error {
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				internalMetrics.SentryEnvelopeForwardedErrorCounter.Inc()
 				return
 			}
 			defer res.Body.Close()
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				internalMetrics.SentryEnvelopeForwardedErrorCounter.Inc()
 				return
 			}
 
 			// Proxy the response from upstream back to the client
+			internalMetrics.SentryEnvelopeForwardedSuccessCounter.Inc()
 			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
@@ -371,6 +375,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		// Check if the request is a POST request
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
 			return
 		}
 
@@ -378,6 +383,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		envelopeBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
 			return
 		}
 
@@ -385,6 +391,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		payload, err := envelope.Parse(envelopeBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
 			return
 		}
 
@@ -392,6 +399,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		dsn, err := sentry.NewDsn(payload.Header.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
 			return
 		}
 
@@ -401,6 +409,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, contextKeyPayload, payload)
 
 		// Call the next handler
+		internalMetrics.SentryEnvelopeAcceptedCounter.Inc()
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
