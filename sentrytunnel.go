@@ -295,12 +295,14 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Route(tunnelPath, func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
 			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
 			// Prepare the request to upstream Sentry
-			req, _ := http.NewRequest("POST", dsn.GetAPIURL().String(), payload.NewReader())
+			req, _ := http.NewRequestWithContext(ctx, "POST", dsn.GetAPIURL().String(), payload.NewReader())
 			req.Header.Set("Content-Type", "application/x-sentry-envelope")
 
 			// Set the X-Sentry-Forwarded-For header for preserving client IP
