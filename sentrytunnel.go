@@ -36,15 +36,19 @@ var (
 )
 
 type SentryTunnel struct {
+	Debug        bool
+	LoggingLevel string
+
+	// Tunnel server
 	ListenAddress            string
-	MetricsAddress           string
-	LoggingLevel             string
 	AccessControlAllowOrigin []string
-	TrustedSentryDSN         []string
 	TrustedProxies           []*net.IPNet
+	TunnelPath               string
+
+	// Tunnel metrics
+	MetricsAddress string
 
 	// Tunnel monitoring
-	Debug            bool
 	DSN              string
 	TracesSampleRate float64
 }
@@ -97,11 +101,12 @@ func Run() error {
 				Destination: &sentrytunnel.ListenAddress,
 			},
 			&cli.StringFlag{
-				Name:     "tunnel-path",
-				Category: "Tunnel server:",
-				Usage:    "The path to accept tunnel requests",
-				Value:    "/tunnel",
-				Sources:  cli.EnvVars("SENTRYTUNNEL_TUNNEL_PATH"),
+				Name:        "tunnel-path",
+				Category:    "Tunnel server:",
+				Usage:       "The path to accept tunnel requests",
+				Value:       "/tunnel",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_TUNNEL_PATH"),
+				Destination: &sentrytunnel.TunnelPath,
 				Validator: func(s string) error {
 					if s == "" || s[0] != '/' {
 						return fmt.Errorf("tunnel path must start with '/'")
@@ -291,8 +296,7 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Use(internalMiddleware.SentryRecoverer)
 
 	// Configure tunnel route
-	tunnelPath := c.String("tunnel-path")
-	r.Route(tunnelPath, func(r chi.Router) {
+	r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
