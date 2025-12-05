@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -85,9 +86,17 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "log-level",
 				Usage:       "Set the log level",
-				Value:       "info",
+				Value:       "INFO",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LOG_LEVEL"),
 				Destination: &sentrytunnel.LoggingLevel,
+				Validator: func(s string) error {
+					switch strings.ToUpper(s) {
+					case "DEBUG", "INFO", "WARN", "ERROR", "NONE":
+						return nil
+					default:
+						return fmt.Errorf("invalid log level: %s", s)
+					}
+				},
 			},
 			&cli.StringFlag{
 				Name:        "dsn",
@@ -206,17 +215,17 @@ func Run() error {
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
-			switch c.String("log-level") {
-			case "debug":
+			switch strings.ToUpper(c.String("log-level")) {
+			case "DEBUG":
 				sentrytunnel.Debug = true
 				logger = level.NewFilter(logger, level.AllowDebug())
-			case "info":
+			case "INFO":
 				logger = level.NewFilter(logger, level.AllowInfo())
-			case "warn":
+			case "WARN":
 				logger = level.NewFilter(logger, level.AllowWarn())
-			case "error":
+			case "ERROR":
 				logger = level.NewFilter(logger, level.AllowError())
-			case "none":
+			case "NONE":
 				logger = level.NewFilter(logger, level.AllowNone())
 			default:
 				logger = level.NewFilter(logger, level.AllowNone())
@@ -291,7 +300,7 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
 
 	// Enable logging middleware if the log level is not set to none
-	if c.String("log-level") != "none" {
+	if c.String("log-level") != "NONE" {
 		r.Use(middleware.Logger)
 	}
 
