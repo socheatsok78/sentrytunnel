@@ -66,12 +66,12 @@ sentry_envelope_accepted 0
 # HELP sentry_envelope_rejected The number of envelopes rejected by the tunnel
 # TYPE sentry_envelope_rejected counter
 sentry_envelope_rejected 0
-# HELP sentry_envelope_forward_success The number of envelopes forwarded by the tunnel
+# HELP sentry_envelope_forward_success The number of envelopes successfully forwarded by the tunnel
 # TYPE sentry_envelope_forward_success counter
 sentry_envelope_forward_success 0
-# HELP sentry_envelope_forwarded_error The number of envelopes that failed to be forwarded by the tunnel
-# TYPE sentry_envelope_forwarded_error counter
-sentry_envelope_forwarded_error 0
+# HELP sentry_envelope_forward_error The number of envelopes that failed to be forwarded by the tunnel
+# TYPE sentry_envelope_forward_error counter
+sentry_envelope_forward_error 0
 ```
 
 ## Benchmark
