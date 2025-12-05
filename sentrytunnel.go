@@ -44,6 +44,7 @@ type SentryTunnel struct {
 	AccessControlAllowOrigin []string
 	TrustedProxies           []*net.IPNet
 	TunnelPath               string
+	TunnelTimeout            time.Duration
 
 	// Tunnel metrics
 	MetricsAddress string
@@ -113,6 +114,14 @@ func Run() error {
 					}
 					return nil
 				},
+			},
+			&cli.DurationFlag{
+				Name:        "tunnel-timeout",
+				Category:    "Tunnel server:",
+				Usage:       "The maximum duration for processing a request",
+				Value:       3 * time.Minute,
+				Sources:     cli.EnvVars("SENTRYTUNNEL_TUNNEL_TIMEOUT"),
+				Destination: &sentrytunnel.TunnelTimeout,
 			},
 			&cli.StringSliceFlag{
 				Name:     "trusted-proxy",
@@ -283,7 +292,7 @@ func action(_ context.Context, c *cli.Command) error {
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
 	// processing should be stopped.
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
 
 	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "none" {
