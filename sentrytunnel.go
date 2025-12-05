@@ -104,7 +104,7 @@ func Run() error {
 			&cli.StringFlag{
 				Name:        "tunnel-path",
 				Category:    "Tunnel server:",
-				Usage:       "The path to accept tunnel requests",
+				Usage:       "The path to accept envelop tunneling requests",
 				Value:       "/tunnel",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_TUNNEL_PATH"),
 				Destination: &sentrytunnel.TunnelPath,
@@ -118,7 +118,7 @@ func Run() error {
 			&cli.DurationFlag{
 				Name:        "tunnel-timeout",
 				Category:    "Tunnel server:",
-				Usage:       "The maximum duration for processing a request",
+				Usage:       "The maximum duration for processing the tunneling requests",
 				Value:       3 * time.Minute,
 				Sources:     cli.EnvVars("SENTRYTUNNEL_TUNNEL_TIMEOUT"),
 				Destination: &sentrytunnel.TunnelTimeout,

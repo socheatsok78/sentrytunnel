@@ -45,8 +45,11 @@ GLOBAL OPTIONS:
 
    Tunnel metrics:
 
+   --metrics-addr string  The address to listen on (default: ":9091") [$SENTRYTUNNEL_METRICS_ADDR]
+
+   Tunnel self-monitoring:
+
    --dsn string               The Sentry DSN for monitoring the tunnel [$SENTRYTUNNEL_DSN]
-   --metrics-addr string      The address to listen on (default: ":9091") [$SENTRYTUNNEL_METRICS_ADDR]
    --trace-sample-rate float  The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0] (default: 1) [$SENTRYTUNNEL_TRACE_SAMPLE_RATE]
 
    Tunnel server:
@@ -54,6 +57,8 @@ GLOBAL OPTIONS:
    --allowed-origin string [ --allowed-origin string ]  A list of origins that are allowed to access the tunnel. e.g. https://example.com [$SENTRYTUNNEL_ALLOWED_ORIGIN]
    --listen-addr string                                 The address to listen on (default: ":8080") [$SENTRYTUNNEL_LISTEN_ADDR]
    --trusted-proxy string [ --trusted-proxy string ]    A list of trusted proxy IPs or CIDRs to extract the client IP from X-Forwarded-For header. [$SENTRYTUNNEL_TRUSTED_PROXY]
+   --tunnel-path string                                 The path to accept envelop tunneling requests (default: "/tunnel") [$SENTRYTUNNEL_TUNNEL_PATH]
+   --tunnel-timeout duration                            The maximum duration for processing a tunneling requests (default: 3m0s) [$SENTRYTUNNEL_TUNNEL_TIMEOUT]
 ```
 
 ## Metrics
