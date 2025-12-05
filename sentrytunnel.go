@@ -159,9 +159,11 @@ func Run() error {
 				Sources:     cli.EnvVars("SENTRYTUNNEL_METRICS_ADDR"),
 				Destination: &sentrytunnel.MetricsAddress,
 			},
+
+			// Tunnel self-monitoring via Sentry
 			&cli.StringFlag{
 				Name:        "dsn",
-				Category:    "Tunnel metrics:",
+				Category:    "Tunnel self-monitoring:",
 				Usage:       "The Sentry DSN for monitoring the tunnel",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_DSN"),
 				Destination: &sentrytunnel.DSN,
@@ -172,7 +174,7 @@ func Run() error {
 			},
 			&cli.FloatFlag{
 				Name:        "trace-sample-rate",
-				Category:    "Tunnel metrics:",
+				Category:    "Tunnel self-monitoring:",
 				Usage:       "The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0]",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_TRACE_SAMPLE_RATE"),
 				Value:       1.0,
