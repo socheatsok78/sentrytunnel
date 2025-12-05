@@ -95,6 +95,19 @@ func Run() error {
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LISTEN_ADDR"),
 				Destination: &sentrytunnel.ListenAddress,
 			},
+			&cli.StringFlag{
+				Name:     "tunnel-path",
+				Category: "Tunnel server:",
+				Usage:    "The path to accept tunnel requests",
+				Value:    "/tunnel",
+				Sources:  cli.EnvVars("SENTRYTUNNEL_TUNNEL_PATH"),
+				Validator: func(s string) error {
+					if s == "" || s[0] != '/' {
+						return fmt.Errorf("tunnel path must start with '/'")
+					}
+					return nil
+				},
+			},
 			&cli.StringSliceFlag{
 				Name:     "trusted-proxy",
 				Category: "Tunnel server:",
@@ -277,7 +290,8 @@ func action(_ context.Context, c *cli.Command) error {
 	r.Use(smiddleware.SentryRecoverer)
 
 	// Configure tunnel route
-	r.Route("/tunnel", func(r chi.Router) {
+	tunnelPath := c.String("tunnel-path")
+	r.Route(tunnelPath, func(r chi.Router) {
 		r.Use(SentryTunnelCtx)
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			// Get the DSN and payload from the context
