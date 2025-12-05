@@ -36,8 +36,10 @@ var (
 )
 
 type SentryTunnel struct {
-	Debug        bool
-	LoggingLevel string
+	Debug            bool
+	LoggingLevel     string
+	DSN              string
+	TracesSampleRate float64
 
 	// Tunnel server
 	ListenAddress            string
@@ -48,10 +50,6 @@ type SentryTunnel struct {
 
 	// Tunnel metrics
 	MetricsAddress string
-
-	// Tunnel monitoring
-	DSN              string
-	TracesSampleRate float64
 }
 
 // SentryTunnel
@@ -90,6 +88,25 @@ func Run() error {
 				Value:       "info",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_LOG_LEVEL"),
 				Destination: &sentrytunnel.LoggingLevel,
+			},
+			&cli.StringFlag{
+				Name:        "dsn",
+				Usage:       "The Sentry DSN to send monitoring events to",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_DSN"),
+				Destination: &sentrytunnel.DSN,
+				Validator: func(s string) error {
+					_, err := sentry.NewDsn(s)
+					return err
+				},
+				Hidden: true,
+			},
+			&cli.FloatFlag{
+				Name:        "trace-sample-rate",
+				Usage:       "The Sentry monitoring's trace sample rate for tracing (0.0 - 1.0)",
+				Sources:     cli.EnvVars("SENTRYTUNNEL_TRACE_SAMPLE_RATE"),
+				Value:       1.0,
+				Destination: &sentrytunnel.TracesSampleRate,
+				Hidden:      true,
 			},
 
 			// Tunnel server
@@ -186,27 +203,6 @@ func Run() error {
 				Value:       ":9091",
 				Sources:     cli.EnvVars("SENTRYTUNNEL_METRICS_ADDR"),
 				Destination: &sentrytunnel.MetricsAddress,
-			},
-
-			// Tunnel self-monitoring via Sentry
-			&cli.StringFlag{
-				Name:        "dsn",
-				Category:    "Tunnel self-monitoring:",
-				Usage:       "The Sentry DSN for monitoring the tunnel",
-				Sources:     cli.EnvVars("SENTRYTUNNEL_DSN"),
-				Destination: &sentrytunnel.DSN,
-				Validator: func(s string) error {
-					_, err := sentry.NewDsn(s)
-					return err
-				},
-			},
-			&cli.FloatFlag{
-				Name:        "trace-sample-rate",
-				Category:    "Tunnel self-monitoring:",
-				Usage:       "The Sentry tunnel sample rate for sampling traces in the range [0.0, 1.0]",
-				Sources:     cli.EnvVars("SENTRYTUNNEL_TRACE_SAMPLE_RATE"),
-				Value:       1.0,
-				Destination: &sentrytunnel.TracesSampleRate,
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
