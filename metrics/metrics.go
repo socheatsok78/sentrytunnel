@@ -13,13 +13,13 @@ var (
 		Name: "sentry_envelope_rejected",
 		Help: "The number of envelopes rejected by the tunnel",
 	})
-	// SentryEnvelopeForwardedSuccessCounter is a Prometheus counter for the number of envelopes successfully forwarded by the tunnel
-	SentryEnvelopeForwardedSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+	// SentryEnvelopeForwardSuccessCounter is a Prometheus counter for the number of envelopes successfully forwarded by the tunnel
+	SentryEnvelopeForwardSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "sentry_envelope_forward_success",
 		Help: "The number of envelopes successfully forwarded by the tunnel",
 	})
-	// SentryEnvelopeForwardedErrorCounter is a Prometheus counter for the number of envelopes that failed to be forwarded by the tunnel
-	SentryEnvelopeForwardedErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
+	// SentryEnvelopeForwardErrorCounter is a Prometheus counter for the number of envelopes that failed to be forwarded by the tunnel
+	SentryEnvelopeForwardErrorCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "sentry_envelope_forward_error",
 		Help: "The number of envelopes that failed to be forwarded by the tunnel",
 	})
@@ -28,6 +28,6 @@ var (
 func init() {
 	prometheus.MustRegister(SentryEnvelopeAcceptedCounter)
 	prometheus.MustRegister(SentryEnvelopeRejectedCounter)
-	prometheus.MustRegister(SentryEnvelopeForwardedSuccessCounter)
-	prometheus.MustRegister(SentryEnvelopeForwardedErrorCounter)
+	prometheus.MustRegister(SentryEnvelopeForwardSuccessCounter)
+	prometheus.MustRegister(SentryEnvelopeForwardErrorCounter)
 }

@@ -330,19 +330,19 @@ func action(_ context.Context, c *cli.Command) error {
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				internalMetrics.SentryEnvelopeForwardedErrorCounter.Inc()
+				internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
 				return
 			}
 			defer res.Body.Close()
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				internalMetrics.SentryEnvelopeForwardedErrorCounter.Inc()
+				internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
 				return
 			}
 
 			// Proxy the response from upstream back to the client
-			internalMetrics.SentryEnvelopeForwardedSuccessCounter.Inc()
+			internalMetrics.SentryEnvelopeForwardSuccessCounter.Inc()
 			w.WriteHeader(res.StatusCode)
 			w.Write(body)
 		})
