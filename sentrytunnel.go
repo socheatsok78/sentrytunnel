@@ -271,92 +271,6 @@ func action(_ context.Context, c *cli.Command) error {
 	// Initialize run group
 	var g run.Group
 
-	// Initialize HTTP server with Chi
-	r := chi.NewRouter()
-	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
-	r.Use(internalMiddleware.RequestID)
-	r.Use(internalMiddleware.RequestIDHeader)
-
-	// CORS and Trusted Proxies
-	r.Use(cors.Handler((cors.Options{
-		AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
-	})))
-	r.Use(proxy.ForwardedHeaders(
-		&proxy.ForwardedHeadersOptions{
-			ForwardLimit:       0,
-			TrustingAllProxies: len(sentrytunnel.TrustedProxies) == 0,
-			TrustedNetworks:    sentrytunnel.TrustedProxies,
-		},
-	))
-
-	// Metrics
-	r.Use(std.HandlerProvider("", metricsMiddleware.New(metricsMiddleware.Config{
-		Service:  Name,
-		Recorder: metrics.NewRecorder(metrics.Config{}),
-	})))
-
-	// Enable logging middleware if the log level is not set to none
-	if c.String("log-level") != "NONE" {
-		r.Use(middleware.Logger)
-	}
-
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
-	r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
-
-	// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
-	// and returns a HTTP 500 (Internal Server Error) status if possible.
-	r.Use(middleware.Recoverer)
-	r.Use(internalMiddleware.SentryRecoverer)
-
-	// Heartbeat endpoint for liveness probe
-	r.Use(middleware.Heartbeat("/heartbeat"))
-
-	// Profiler endpoint for debugging
-	if sentrytunnel.Debug {
-		r.Mount("/debug", middleware.Profiler())
-	}
-
-	// Configure tunnel route
-	r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
-		r.Use(SentryTunnelCtx)
-		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-
-			// Get the DSN and payload from the context
-			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
-
-			// Prepare the request to upstream Sentry
-			req, _ := http.NewRequestWithContext(ctx, "POST", dsn.GetAPIURL().String(), r.Body)
-			req.Header.Set("Content-Type", "application/x-sentry-envelope")
-
-			// Set the X-Sentry-Forwarded-For header for preserving client IP
-			req.Header.Set("X-Sentry-Forwarded-For", clientIP(r.RemoteAddr))
-
-			// Sending the payload to upstream
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
-				return
-			}
-			defer res.Body.Close()
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
-				return
-			}
-
-			// Proxy the response from upstream back to the client
-			internalMetrics.SentryEnvelopeForwardSuccessCounter.Inc()
-			w.WriteHeader(res.StatusCode)
-			w.Header().Set("Content-Type", res.Header.Get("Content-Type"))
-			w.Write(body)
-		})
-	})
-
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	g.Add(func() error {
@@ -369,19 +283,111 @@ func action(_ context.Context, c *cli.Command) error {
 		close(quit)
 	})
 
-	// Serve metrics
+	// Metrics server
 	{
+		r := chi.NewRouter()
+
+		// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
+		// and returns a HTTP 500 (Internal Server Error) status if possible.
+		r.Use(middleware.Recoverer)
+		r.Use(internalMiddleware.SentryRecoverer)
+
+		// Metrics and debug endpoints
+		r.Mount("/metrics", promhttp.Handler())
+		r.Mount("/debug", middleware.Profiler())
+
 		ln, _ := net.Listen("tcp", sentrytunnel.MetricsAddress)
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
-			return http.Serve(ln, promhttp.Handler())
+			return http.Serve(ln, r)
 		}, func(err error) {
 			ln.Close()
 		})
 	}
 
-	// Serve Sentry Tunnel
+	// Sentry tunnel server
 	{
+		// Initialize HTTP server with Chi
+		r := chi.NewRouter()
+		r.Use(middleware.SetHeader("Server", Name+"/"+Version))
+		r.Use(internalMiddleware.RequestID)
+		r.Use(internalMiddleware.RequestIDHeader)
+
+		// CORS and Trusted Proxies
+		r.Use(cors.Handler((cors.Options{
+			AllowedOrigins: sentrytunnel.AccessControlAllowOrigin,
+		})))
+		r.Use(proxy.ForwardedHeaders(
+			&proxy.ForwardedHeadersOptions{
+				ForwardLimit:       0,
+				TrustingAllProxies: len(sentrytunnel.TrustedProxies) == 0,
+				TrustedNetworks:    sentrytunnel.TrustedProxies,
+			},
+		))
+
+		// Metrics
+		r.Use(std.HandlerProvider("", metricsMiddleware.New(metricsMiddleware.Config{
+			Service:  Name,
+			Recorder: metrics.NewRecorder(metrics.Config{}),
+		})))
+
+		// Enable logging middleware if the log level is not set to none
+		if c.String("log-level") != "NONE" {
+			r.Use(middleware.Logger)
+		}
+
+		// Set a timeout value on the request context (ctx), that will signal
+		// through ctx.Done() that the request has timed out and further
+		// processing should be stopped.
+		r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
+
+		// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
+		// and returns a HTTP 500 (Internal Server Error) status if possible.
+		r.Use(middleware.Recoverer)
+		r.Use(internalMiddleware.SentryRecoverer)
+
+		// Heartbeat endpoint for liveness probe
+		r.Use(middleware.Heartbeat("/heartbeat"))
+
+		// Configure tunnel route
+		r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
+			r.Use(SentryTunnelCtx)
+			r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+
+				// Get the DSN and payload from the context
+				dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
+
+				// Prepare the request to upstream Sentry
+				req, _ := http.NewRequestWithContext(ctx, "POST", dsn.GetAPIURL().String(), r.Body)
+				req.Header.Set("Content-Type", "application/x-sentry-envelope")
+
+				// Set the X-Sentry-Forwarded-For header for preserving client IP
+				req.Header.Set("X-Sentry-Forwarded-For", clientIP(r.RemoteAddr))
+
+				// Sending the payload to upstream
+				res, err := http.DefaultClient.Do(req)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
+					return
+				}
+				defer res.Body.Close()
+				body, err := io.ReadAll(res.Body)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					internalMetrics.SentryEnvelopeForwardErrorCounter.Inc()
+					return
+				}
+
+				// Proxy the response from upstream back to the client
+				internalMetrics.SentryEnvelopeForwardSuccessCounter.Inc()
+				w.WriteHeader(res.StatusCode)
+				w.Header().Set("Content-Type", res.Header.Get("Content-Type"))
+				w.Write(body)
+			})
+		})
+
 		ln, _ := net.Listen("tcp", sentrytunnel.ListenAddress)
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
