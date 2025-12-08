@@ -21,6 +21,7 @@
           default = pkgs.mkShellNoCC {
             packages = with pkgs; [
               go_1_24
+              gopls
             ];
           };
         }
