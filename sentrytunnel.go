@@ -271,11 +271,9 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Initialize HTTP server with Chi
 	r := chi.NewRouter()
+	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
 	r.Use(internalMiddleware.RequestID)
 	r.Use(internalMiddleware.RequestIDHeader)
-
-	r.Use(middleware.SetHeader("Server", Name+"/"+Version))
-	r.Use(middleware.Heartbeat("/heartbeat"))
 
 	// CORS and Trusted Proxies
 	r.Use(cors.Handler((cors.Options{
@@ -295,20 +293,23 @@ func action(_ context.Context, c *cli.Command) error {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})))
 
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
-	r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
-
 	// Enable logging middleware if the log level is not set to none
 	if c.String("log-level") != "NONE" {
 		r.Use(middleware.Logger)
 	}
 
+	// Set a timeout value on the request context (ctx), that will signal
+	// through ctx.Done() that the request has timed out and further
+	// processing should be stopped.
+	r.Use(middleware.Timeout(sentrytunnel.TunnelTimeout))
+
 	// Recoverer is a middleware that recovers from panics, logs the panic (and a backtrace),
 	// and returns a HTTP 500 (Internal Server Error) status if possible.
 	r.Use(middleware.Recoverer)
 	r.Use(internalMiddleware.SentryRecoverer)
+
+	// Heartbeat endpoint for liveness probe
+	r.Use(middleware.Heartbeat("/heartbeat"))
 
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
