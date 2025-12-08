@@ -14,7 +14,7 @@ func (e *EnvelopeHeader) Bytes() []byte {
 	return e.Payload
 }
 
-func parseEnvelopeHeader(bytes []byte) (*EnvelopeHeader, error) {
+func ParseEnvelopeHeader(bytes []byte) (*EnvelopeHeader, error) {
 	envelopeHeader := &EnvelopeHeader{
 		Payload: bytes,
 	}

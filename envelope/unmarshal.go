@@ -14,7 +14,7 @@ func Unmarshal(data []byte, envelope *Envelope) error {
 	}
 
 	// Parse the envelope header
-	if envelopeHeader, err := parseEnvelopeHeader(lines[0]); err == nil {
+	if envelopeHeader, err := ParseEnvelopeHeader(lines[0]); err == nil {
 		envelope.Header = *envelopeHeader
 	} else {
 		return err

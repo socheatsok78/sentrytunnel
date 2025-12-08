@@ -424,8 +424,14 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 			return
 		}
 
-		// Parse the envelope
-		payload, err := envelope.Parse(body)
+		// Parse the envelope header
+		lines := bytes.SplitN(body, []byte("\n"), 2)
+		if len(lines) < 2 {
+			http.Error(w, "error parsing envelope", http.StatusBadRequest)
+			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
+			return
+		}
+		envelopeHeader, err := envelope.ParseEnvelopeHeader(lines[0])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
@@ -433,7 +439,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Parse the DSN
-		dsn, err := sentry.NewDsn(payload.Header.DSN)
+		dsn, err := sentry.NewDsn(envelopeHeader.DSN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
