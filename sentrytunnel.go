@@ -345,6 +345,7 @@ func action(_ context.Context, c *cli.Command) error {
 			// Proxy the response from upstream back to the client
 			internalMetrics.SentryEnvelopeForwardSuccessCounter.Inc()
 			w.WriteHeader(res.StatusCode)
+			w.Header().Set("Content-Type", res.Header.Get("Content-Type"))
 			w.Write(body)
 		})
 	})
