@@ -252,8 +252,10 @@ func action(_ context.Context, c *cli.Command) error {
 			SendDefaultPII: true,
 			EnableTracing:  true,
 			TracesSampler: sentry.TracesSampler(func(ctx sentry.SamplingContext) float64 {
-				// Sample only non-heartbeat transactions
+				// Sample all requests except for health checks and metrics
 				if ctx.Span.Name == "GET /heartbeat" {
+					return 0.0
+				} else if ctx.Span.Name == "GET /metrics" {
 					return 0.0
 				} else if strings.Contains(ctx.Span.Name, "GET /debug") {
 					return 0.0
