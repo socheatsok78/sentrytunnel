@@ -78,32 +78,19 @@ sentry_envelope_forward_error 0
 The tunnel server exposes the pprof debug endpoints at `/debug/pprof` on port `9091`.
 
 ## Benchmark
-The benchmark was done using [wrk](https://github.com/wg/wrk) running on a local machine.
+The benchmark was done using [wrk](https://github.com/wg/wrk) running on a local machine. Simulating a more realistic scenario with a higher latency using Sentry stub instance with a fake session payload.
 
 ```
 Running 30s test @ http://localhost:8080/tunnel
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     5.74ms    5.41ms 100.42ms   86.42%
-    Req/Sec     6.51k     1.24k   14.61k    77.06%
-  2337038 requests in 30.08s, 167.16MB read
-  Socket errors: connect 0, read 376, write 0, timeout 0
-Requests/sec:  77685.87
-Transfer/sec:      5.56MB
-```
-
-Simulating a more realistic scenario with a higher latency using self-hosted Sentry instance with a sample project.
-
-```
-Running 30s test @ http://localhost:8080/tunnel
-  12 threads and 400 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   323.22ms  167.05ms   1.54s    90.25%
-    Req/Sec   113.83     74.80   323.00     65.29%
-  38592 requests in 30.11s, 8.17MB read
-  Socket errors: connect 0, read 388, write 0, timeout 0
-Requests/sec:   1281.89
-Transfer/sec:    277.91KB
+    Latency   166.29ms   82.42ms   1.33s    67.63%
+    Req/Sec   126.74    108.95   565.00     77.81%
+  42631 requests in 30.10s, 11.77MB read
+  Socket errors: connect 159, read 0, write 0, timeout 0
+  Non-2xx or 3xx responses: 15621
+Requests/sec:   1416.30
+Transfer/sec:    400.53KB
 ```
 
 <!-- Links -->
