@@ -63,9 +63,7 @@ var (
 type contextKey string
 
 const (
-	contextKeyID      contextKey = "id"
-	contextKeyDSN     contextKey = "dsn"
-	contextKeyPayload contextKey = "payload"
+	contextKeyDSN contextKey = "dsn"
 )
 
 // Setup logger
