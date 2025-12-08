@@ -1,4 +1,4 @@
-package envelope
+package internal
 
 import (
 	"encoding/json"
@@ -6,18 +6,11 @@ import (
 )
 
 type EnvelopeHeader struct {
-	DSN     string
-	Payload []byte
-}
-
-func (e *EnvelopeHeader) Bytes() []byte {
-	return e.Payload
+	DSN string
 }
 
 func ParseEnvelopeHeader(bytes []byte) (*EnvelopeHeader, error) {
-	envelopeHeader := &EnvelopeHeader{
-		Payload: bytes,
-	}
+	envelopeHeader := &EnvelopeHeader{}
 
 	err := json.Unmarshal(bytes, envelopeHeader)
 	if err != nil {

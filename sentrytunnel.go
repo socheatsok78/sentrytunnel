@@ -26,7 +26,7 @@ import (
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	metricsMiddleware "github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
-	"github.com/socheatsok78/sentrytunnel/envelope"
+	"github.com/socheatsok78/sentrytunnel/internal"
 	internalMetrics "github.com/socheatsok78/sentrytunnel/metrics"
 	internalMiddleware "github.com/socheatsok78/sentrytunnel/middleware"
 	"github.com/urfave/cli/v3"
@@ -425,13 +425,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Parse the envelope header
-		lines := bytes.SplitN(body, []byte("\n"), 2)
-		if len(lines) < 2 {
-			http.Error(w, "error parsing envelope", http.StatusBadRequest)
-			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
-			return
-		}
-		envelopeHeader, err := envelope.ParseEnvelopeHeader(lines[0])
+		envelopeHeader, err := internal.Parse(body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
