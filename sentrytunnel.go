@@ -255,6 +255,8 @@ func action(_ context.Context, c *cli.Command) error {
 				// Sample only non-heartbeat transactions
 				if ctx.Span.Name == "GET /heartbeat" {
 					return 0.0
+				} else if strings.Contains(ctx.Span.Name, "GET /debug") {
+					return 0.0
 				}
 				return sentrytunnel.TracesSampleRate
 			}),
@@ -310,6 +312,11 @@ func action(_ context.Context, c *cli.Command) error {
 
 	// Heartbeat endpoint for liveness probe
 	r.Use(middleware.Heartbeat("/heartbeat"))
+
+	// Profiler endpoint for debugging
+	if sentrytunnel.Debug {
+		r.Mount("/debug", middleware.Profiler())
+	}
 
 	// Configure tunnel route
 	r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
