@@ -1,6 +1,7 @@
 package sentrytunnel
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -317,10 +318,9 @@ func action(_ context.Context, c *cli.Command) error {
 
 			// Get the DSN and payload from the context
 			dsn := r.Context().Value(contextKeyDSN).(*sentry.Dsn)
-			payload := r.Context().Value(contextKeyPayload).(*envelope.Envelope)
 
 			// Prepare the request to upstream Sentry
-			req, _ := http.NewRequestWithContext(ctx, "POST", dsn.GetAPIURL().String(), payload.NewReader())
+			req, _ := http.NewRequestWithContext(ctx, "POST", dsn.GetAPIURL().String(), r.Body)
 			req.Header.Set("Content-Type", "application/x-sentry-envelope")
 
 			// Set the X-Sentry-Forwarded-For header for preserving client IP
@@ -400,7 +400,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Read the envelope from the request body
-		envelopeBytes, err := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
@@ -408,7 +408,7 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		}
 
 		// Parse the envelope
-		payload, err := envelope.Parse(envelopeBytes)
+		payload, err := envelope.Parse(body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
@@ -426,7 +426,9 @@ func SentryTunnelCtx(next http.Handler) http.Handler {
 		// Set the DSN and payload to the context
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, contextKeyDSN, dsn)
-		ctx = context.WithValue(ctx, contextKeyPayload, payload)
+
+		// Reset the request body for the next handler
+		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		// Call the next handler
 		internalMetrics.SentryEnvelopeAcceptedCounter.Inc()
