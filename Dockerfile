@@ -13,7 +13,7 @@ RUN --mount=type=bind,target=/app,source=. \
     for GOARCH in amd64 arm64; do
         export GOARCH
         go build \
-                -ldflags="-s -X github.com/socheatsok78/sentrytunnel.Version=${DOCKER_META_VERSION}" \
+                -ldflags="-w -s -X github.com/socheatsok78/sentrytunnel.Version=${DOCKER_META_VERSION}" \
                 -o /sentrytunnel-$GOOS-$GOARCH \
             cmd/sentrytunnel/sentrytunnel.go
     done

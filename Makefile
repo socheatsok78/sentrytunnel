@@ -1,3 +1,4 @@
+GOLDFLAGS := -w -s
 PKG_ROOT := github.com/socheatsok78/sentrytunnel
 PKG_VERSION := dev
 
@@ -13,7 +14,7 @@ debug:
 build: bin/sentrytunnel
 
 bin/sentrytunnel:
-	go build -ldflags="-s -X $(PKG_ROOT).Version=$(PKG_VERSION)" -o bin/sentrytunnel cmd/sentrytunnel/sentrytunnel.go
+	go build -ldflags="$(GOLDFLAGS) -X $(PKG_ROOT).Version=$(PKG_VERSION)" -o bin/sentrytunnel cmd/sentrytunnel/sentrytunnel.go
 
 clean:
 	rm -rf bin
