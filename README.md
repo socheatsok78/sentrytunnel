@@ -57,7 +57,7 @@ GLOBAL OPTIONS:
 ```
 
 ## Metrics
-The tunnel server exposes the following metrics:
+The tunnel server exposes the following metrics at `/metrics` endpoint on port `9091`.
 
 ```
 # HELP sentry_envelope_accepted The number of envelopes accepted by the tunnel
@@ -73,6 +73,9 @@ sentry_envelope_forward_success 0
 # TYPE sentry_envelope_forward_error counter
 sentry_envelope_forward_error 0
 ```
+
+## Debug
+The tunnel server exposes the pprof debug endpoints at `/debug/pprof` on port `9091`.
 
 ## Benchmark
 The benchmark was done using [wrk](https://github.com/wg/wrk) running on a local machine.
