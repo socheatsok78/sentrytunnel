@@ -264,10 +264,10 @@ func action(_ context.Context, c *cli.Command) error {
 			}),
 		})
 		if err != nil {
-			level.Error(logger).Log("msg", "error initializing Sentry", "err", err)
+			level.Error(logger).Log("msg", "error initializing sentry", "err", err)
 			return err
 		}
-		level.Info(logger).Log("msg", "initialized Sentry for tunnel monitoring")
+		level.Info(logger).Log("msg", "initialized sentry", "dsn", sentrytunnel.DSN)
 	}
 
 	// Initialize run group
