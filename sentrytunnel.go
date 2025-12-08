@@ -265,7 +265,8 @@ func action(_ context.Context, c *cli.Command) error {
 			level.Error(logger).Log("msg", "error initializing sentry", "err", err)
 			return err
 		}
-		level.Info(logger).Log("msg", "initialized sentry", "dsn", sentrytunnel.DSN)
+		url, _ := url.Parse(sentrytunnel.DSN)
+		level.Info(logger).Log("msg", "initialized sentry", "dsn", url.Redacted())
 	}
 
 	// Initialize run group
