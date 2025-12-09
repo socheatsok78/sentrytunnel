@@ -30,6 +30,9 @@ import (
 	internalMetrics "github.com/socheatsok78/sentrytunnel/metrics"
 	internalMiddleware "github.com/socheatsok78/sentrytunnel/middleware"
 	"github.com/urfave/cli/v3"
+
+	_ "github.com/KimMachineGun/automemlimit"
+	_ "go.uber.org/automaxprocs"
 )
 
 var (
