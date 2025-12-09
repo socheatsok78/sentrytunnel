@@ -352,8 +352,7 @@ func action(_ context.Context, c *cli.Command) error {
 
 		// Configure tunnel route
 		r.Route(sentrytunnel.TunnelPath, func(r chi.Router) {
-			r.Use(SentryTunnelCtx)
-			r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			r.With(SentryEnvelopeParser).Post("/", func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
 
 				// Get the DSN and payload from the context
@@ -405,16 +404,9 @@ func action(_ context.Context, c *cli.Command) error {
 	return g.Run()
 }
 
-func SentryTunnelCtx(next http.Handler) http.Handler {
+func SentryEnvelopeParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Process the request
-		// Check if the request is a POST request
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			internalMetrics.SentryEnvelopeRejectedCounter.Inc()
-			return
-		}
-
 		// Read the envelope from the request body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
