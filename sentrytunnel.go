@@ -407,9 +407,10 @@ func action(_ context.Context, c *cli.Command) error {
 	return g.Run()
 }
 
+// SentryEnvelopeParser is a middleware that parses the Sentry envelope from the request body
+// and sets the DSN and payload to the request context.
 func SentryEnvelopeParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Process the request
 		// Read the envelope from the request body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
