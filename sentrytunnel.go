@@ -300,7 +300,11 @@ func action(_ context.Context, c *cli.Command) error {
 		r.Mount("/metrics", promhttp.Handler())
 		r.Mount("/debug", middleware.Profiler())
 
-		ln, _ := net.Listen("tcp", sentrytunnel.MetricsAddress)
+		ln, err := net.Listen("tcp", sentrytunnel.MetricsAddress)
+		if err != nil {
+			level.Error(logger).Log("msg", "error starting metrics listener", "err", err)
+			return err
+		}
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("metrics listening at %s", sentrytunnel.MetricsAddress))
 			return http.Serve(ln, r)
@@ -391,7 +395,11 @@ func action(_ context.Context, c *cli.Command) error {
 			})
 		})
 
-		ln, _ := net.Listen("tcp", sentrytunnel.ListenAddress)
+		ln, err := net.Listen("tcp", sentrytunnel.ListenAddress)
+		if err != nil {
+			level.Error(logger).Log("msg", "error starting tunnel listener", "err", err)
+			return err
+		}
 		g.Add(func() error {
 			level.Info(logger).Log("msg", fmt.Sprintf("server listening at %s", sentrytunnel.ListenAddress))
 			return http.Serve(ln, r)
