@@ -41,8 +41,6 @@
               gopls
               gotools
             ];
-
-            GOPRIVATE = "github.com/socheatsok78/*";
           };
         }
       );
