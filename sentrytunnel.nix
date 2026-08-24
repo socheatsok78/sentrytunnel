@@ -3,11 +3,11 @@
 }:
 buildGoModule (finalAttrs: {
   pname = "sentrytunnel";
-  version = "1.0.0";
+  version = "1.1.0";
 
   src = ./.;
 
-  vendorHash = "sha256-3GGRuXhFqlvzWaJ9axAYXjv1l2B1GEQTpIW9Kg/09tQ=";
+  vendorHash = "sha256-FuDeGdWXtfgbidwwwtqjOnCJOGieG3IyVmYFUv3xOyM=";
 
   ldflags = [
     "-s"
